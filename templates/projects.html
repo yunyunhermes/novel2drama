@@ -1,34 +1,7 @@
 {% extends "base.html" %}
 {% block title %}项目列表 - novel2drama{% endblock %}
+{% block page %}projects{% endblock %}
 {% block content %}
-<div class="card">
-    <h2>项目列表</h2>
-    <button class="btn" hx-get="/api/v1/projects" hx-target="#project-list" hx-swap="innerHTML">刷新</button>
-    <div id="project-list" hx-get="/api/v1/projects" hx-trigger="load">
-        <p>加载中...</p>
-    </div>
-</div>
-
-<div class="card">
-    <h3>新建项目</h3>
-    <form hx-post="/api/v1/projects" hx-target="#project-list" hx-swap="innerHTML">
-        <div class="form-group">
-            <label>项目名称</label>
-            <input type="text" name="name" required>
-        </div>
-        <div class="form-group">
-            <label>描述</label>
-            <textarea name="description"></textarea>
-        </div>
-        <div class="form-group">
-            <label>目标时长（秒）</label>
-            <input type="number" name="target_duration_seconds" value="180">
-        </div>
-        <div class="form-group">
-            <label>风格提示</label>
-            <input type="text" name="style_prompt">
-        </div>
-        <button type="submit" class="btn">创建</button>
-    </form>
-</div>
+<div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>项目管理</h1><p class="muted">从小说原稿到可导出的短剧成片，集中管理每个制作阶段。</p></div><button class="btn secondary" data-action="refresh-projects">刷新列表</button></div>
+<section class="split-layout"><div><div id="project-list" class="project-grid"><div class="loading">正在加载项目...</div></div></div><aside class="panel"><div class="panel-title"><h2>新建项目</h2><span class="step">01</span></div><form data-form="create-project"><label>项目名称<input name="name" required placeholder="例如：长安夜行"></label><label>项目描述<textarea name="description" placeholder="一句话描述故事主题与受众"></textarea></label><div class="form-row"><label>目标时长（秒）<input type="number" name="target_duration_seconds" value="180" min="1"></label><label>风格提示<input name="style_prompt" placeholder="电影感、写实"></label></div><button class="btn" type="submit">创建项目</button></form></aside></section>
 {% endblock %}

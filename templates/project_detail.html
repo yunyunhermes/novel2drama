@@ -1,27 +1,6 @@
 {% extends "base.html" %}
 {% block title %}项目详情 - novel2drama{% endblock %}
+{% block page %}project-detail{% endblock %}
 {% block content %}
-<div class="card">
-    <h2>项目详情</h2>
-    <div id="project-info" hx-get="/api/v1/projects/{{ project_id }}" hx-trigger="load">
-        <p>加载中...</p>
-    </div>
-</div>
-
-<div class="card">
-    <h3>功能入口</h3>
-    <p>
-        <a href="/projects/{{ project_id }}/novels" class="btn">小说版本</a>
-        <a href="/projects/{{ project_id }}/storyboard" class="btn">分镜编辑</a>
-        <a href="/projects/{{ project_id }}/assets" class="btn">资产库</a>
-        <a href="/projects/{{ project_id }}/export" class="btn">导出</a>
-    </p>
-</div>
-
-<div class="card">
-    <h3>任务列表</h3>
-    <div id="job-list" hx-get="/api/v1/projects/{{ project_id }}/jobs" hx-trigger="load">
-        <p>加载中...</p>
-    </div>
-</div>
+<div id="project-info" class="loading">正在加载项目...</div><section class="panel progress-panel"><div class="panel-title"><div><p class="eyebrow">WORKFLOW</p><h2>制作进度</h2></div><span id="project-status" class="badge">草稿</span></div><div id="stage-progress" class="stage-track"></div></section><section class="module-grid" id="module-links"></section><section class="panel"><div class="panel-title"><h2>任务动态</h2><button class="btn secondary btn-sm" data-action="refresh-detail">刷新</button></div><div id="job-list" class="job-list"><div class="loading">正在加载任务...</div></div></section>
 {% endblock %}

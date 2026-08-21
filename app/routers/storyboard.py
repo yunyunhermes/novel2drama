@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from app.db import get_db
 from app.models import SegmentCreate, ShotBeatCreate
 import uuid
@@ -27,6 +27,27 @@ def create_segment(project_id: str, s: SegmentCreate):
     db.close()
     return {"success": True, "data": {"segment_id": sid}}
 
+@router.patch("/projects/{project_id}/segments/{segment_id}")
+def update_segment(project_id: str, segment_id: str, payload: dict = Body(default={})):
+    db = get_db()
+    db.execute(
+        "UPDATE segments SET summary=?, start_transition=?, end_transition=?, updated_at=? WHERE id=? AND project_id=?",
+        (payload.get("summary", ""), payload.get("start_transition", ""),
+         payload.get("end_transition", ""), now(), segment_id, project_id),
+    )
+    db.commit()
+    db.close()
+    return {"success": True, "data": {"segment_id": segment_id}}
+
+@router.delete("/projects/{project_id}/segments/{segment_id}")
+def delete_segment(project_id: str, segment_id: str):
+    db = get_db()
+    db.execute("DELETE FROM shot_beats WHERE segment_id=?", (segment_id,))
+    db.execute("DELETE FROM segments WHERE id=? AND project_id=?", (segment_id, project_id))
+    db.commit()
+    db.close()
+    return {"success": True, "data": {"deleted": True}}
+
 @router.get("/segments/{segment_id}/beats")
 def list_beats(segment_id: str):
     db = get_db()
@@ -44,6 +65,21 @@ def create_beat(segment_id: str, b: ShotBeatCreate):
     db.commit()
     db.close()
     return {"success": True, "data": {"beat_id": bid}}
+
+@router.patch("/beats/{beat_id}")
+def update_beat(beat_id: str, payload: dict = Body(default={} )):
+    allowed = {"start_ms", "end_ms", "shot_size", "camera_movement", "character_action",
+                "scene_change", "lighting", "composition", "style", "emotion", "transition"}
+    fields = [key for key in payload if key in allowed]
+    if not fields:
+        return {"success": True, "data": {"beat_id": beat_id}}
+    values = [payload[key] for key in fields]
+    assignments = ", ".join(f"{key}=?" for key in fields)
+    db = get_db()
+    db.execute(f"UPDATE shot_beats SET {assignments}, updated_at=? WHERE id=?", (*values, now(), beat_id))
+    db.commit()
+    db.close()
+    return {"success": True, "data": {"beat_id": beat_id}}
 
 @router.delete("/beats/{beat_id}")
 def delete_beat(beat_id: str):
