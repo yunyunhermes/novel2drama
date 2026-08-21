@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}分镜编辑 - novel2drama{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>15秒段列表</h2>
+    <div id="segment-list" hx-get="/api/v1/projects/{{ project_id }}/segments" hx-trigger="load">
+        <p>加载中...</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>新增段</h3>
+    <form hx-post="/api/v1/projects/{{ project_id }}/segments" hx-target="#segment-list">
+        <div class="form-group">
+            <label>段编号</label>
+            <input type="number" name="sort_order" required>
+        </div>
+        <div class="form-group">
+            <label>剧情摘要</label>
+            <textarea name="summary"></textarea>
+        </div>
+        <div class="form-group">
+            <label>段首衔接</label>
+            <input type="text" name="start_transition">
+        </div>
+        <div class="form-group">
+            <label>段尾衔接</label>
+            <input type="text" name="end_transition">
+        </div>
+        <button type="submit" class="btn">创建</button>
+    </form>
+</div>
+{% endblock %}

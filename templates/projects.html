@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}项目列表 - novel2drama{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>项目列表</h2>
+    <button class="btn" hx-get="/api/v1/projects" hx-target="#project-list" hx-swap="innerHTML">刷新</button>
+    <div id="project-list" hx-get="/api/v1/projects" hx-trigger="load">
+        <p>加载中...</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>新建项目</h3>
+    <form hx-post="/api/v1/projects" hx-target="#project-list" hx-swap="innerHTML">
+        <div class="form-group">
+            <label>项目名称</label>
+            <input type="text" name="name" required>
+        </div>
+        <div class="form-group">
+            <label>描述</label>
+            <textarea name="description"></textarea>
+        </div>
+        <div class="form-group">
+            <label>目标时长（秒）</label>
+            <input type="number" name="target_duration_seconds" value="180">
+        </div>
+        <div class="form-group">
+            <label>风格提示</label>
+            <input type="text" name="style_prompt">
+        </div>
+        <button type="submit" class="btn">创建</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}小说版本 - novel2drama{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>小说版本管理</h2>
+    <div id="version-list" hx-get="/api/v1/projects/{{ project_id }}/novel-versions" hx-trigger="load">
+        <p>加载中...</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>上传新版本</h3>
+    <form hx-post="/api/v1/projects/{{ project_id }}/novel-versions" hx-target="#version-list">
+        <div class="form-group">
+            <label>版本标题</label>
+            <input type="text" name="title" required>
+        </div>
+        <div class="form-group">
+            <label>小说原文</label>
+            <textarea name="source_text" rows="10" required></textarea>
+        </div>
+        <button type="submit" class="btn">上传</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}资产库 - novel2drama{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>资产列表</h2>
+    <div id="asset-list" hx-get="/api/v1/projects/{{ project_id }}/assets" hx-trigger="load">
+        <p>加载中...</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>新增资产</h3>
+    <form hx-post="/api/v1/projects/{{ project_id }}/assets" hx-target="#asset-list">
+        <div class="form-group">
+            <label>类型</label>
+            <select name="asset_type">
+                <option value="character">角色</option>
+                <option value="scene">场景</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>名称</label>
+            <input type="text" name="name" required>
+        </div>
+        <div class="form-group">
+            <label>描述</label>
+            <textarea name="description"></textarea>
+        </div>
+        <div class="form-group">
+            <label>外貌锚点</label>
+            <input type="text" name="appearance_anchor">
+        </div>
+        <div class="form-group">
+            <label>服装锚点</label>
+            <input type="text" name="costume_anchor">
+        </div>
+        <div class="form-group">
+            <label>气质锚点</label>
+            <input type="text" name="temperament_anchor">
+        </div>
+        <button type="submit" class="btn">创建</button>
+    </form>
+</div>
+{% endblock %}

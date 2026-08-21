@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}导出 - novel2drama{% endblock %}
+{% block content %}
+<div class="card">
+    <h2>成片导出</h2>
+    <div id="export-list" hx-get="/api/v1/projects/{{ project_id }}/exports" hx-trigger="load">
+        <p>加载中...</p>
+    </div>
+</div>
+
+<div class="card">
+    <h3>创建导出任务</h3>
+    <form hx-post="/api/v1/projects/{{ project_id }}/exports" hx-target="#export-list">
+        <div class="form-group">
+            <label>标题</label>
+            <input type="text" name="title" required>
+        </div>
+        <div class="form-group">
+            <label>段ID列表（JSON数组）</label>
+            <input type="text" name="segment_ids" placeholder='["uuid1","uuid2"]' required>
+        </div>
+        <div class="form-group">
+            <label>分辨率</label>
+            <select name="resolution">
+                <option value="1080p">1080p</option>
+                <option value="720p">720p</option>
+                <option value="4k">4K</option>
+            </select>
+        </div>
+        <button type="submit" class="btn">创建导出</button>
+    </form>
+</div>
+{% endblock %}
