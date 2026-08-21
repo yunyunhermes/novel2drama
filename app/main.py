@@ -22,24 +22,42 @@ app.include_router(export.router, prefix="/api/v1")
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
-    return templates.TemplateResponse("projects.html", {"request": request})
+    return templates.TemplateResponse(request, "projects.html")
 
 @app.get("/projects/{project_id}", response_class=HTMLResponse)
 async def project_detail(request: Request, project_id: str):
-    return templates.TemplateResponse("project_detail.html", {"request": request, "project_id": project_id})
+    return templates.TemplateResponse(request, "project_detail.html", {"project_id": project_id})
 
 @app.get("/projects/{project_id}/novels", response_class=HTMLResponse)
 async def novel_edit(request: Request, project_id: str):
-    return templates.TemplateResponse("novel_edit.html", {"request": request, "project_id": project_id})
+    return templates.TemplateResponse(request, "novel_edit.html", {"project_id": project_id})
 
 @app.get("/projects/{project_id}/storyboard", response_class=HTMLResponse)
 async def storyboard_edit(request: Request, project_id: str):
-    return templates.TemplateResponse("storyboard_edit.html", {"request": request, "project_id": project_id})
+    return templates.TemplateResponse(request, "storyboard_edit.html", {"project_id": project_id})
 
 @app.get("/projects/{project_id}/assets", response_class=HTMLResponse)
 async def asset_review(request: Request, project_id: str):
-    return templates.TemplateResponse("asset_review.html", {"request": request, "project_id": project_id})
+    return templates.TemplateResponse(request, "asset_review.html", {"project_id": project_id})
 
 @app.get("/projects/{project_id}/export", response_class=HTMLResponse)
 async def export_page(request: Request, project_id: str):
-    return templates.TemplateResponse("export.html", {"request": request, "project_id": project_id})
+    return templates.TemplateResponse(request, "export.html", {"project_id": project_id})
+
+
+# ============ 文件服务 ============
+from fastapi.responses import FileResponse
+from app.services.config import project_dir as _project_dir
+
+@app.get("/files/{project_id}/{file_path:path}")
+async def serve_file(project_id: str, file_path: str):
+    """提供项目文件下载 (图片/视频/导出)"""
+    import os as _os
+    base = _project_dir(project_id)
+    full = _os.path.join(base, file_path)
+    # 防目录穿越
+    if not _os.path.abspath(full).startswith(_os.path.abspath(base)):
+        return {"success": False, "error": {"code": "FORBIDDEN", "message": "invalid path"}}
+    if not _os.path.isfile(full):
+        return {"success": False, "error": {"code": "NOT_FOUND", "message": "file not found"}}
+    return FileResponse(full)

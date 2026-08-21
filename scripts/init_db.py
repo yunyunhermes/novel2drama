@@ -68,5 +68,46 @@ def init():
     conn.close()
     print('Database initialized at', DB_PATH)
 
+
+
+def init_v2():
+    """补齐第二版表 (asset_candidates/keyframes/h3_generations/agent_tasks/agent_patches)"""
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS asset_candidates (
+        id TEXT PRIMARY KEY, asset_id TEXT NOT NULL, generator TEXT NOT NULL,
+        prompt TEXT NOT NULL, negative_prompt TEXT, image_path TEXT NOT NULL,
+        seed TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS keyframes (
+        id TEXT PRIMARY KEY, segment_id TEXT NOT NULL, generator TEXT NOT NULL,
+        prompt TEXT NOT NULL, negative_prompt TEXT, image_path TEXT NOT NULL,
+        seed TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS h3_generations (
+        id TEXT PRIMARY KEY, segment_id TEXT NOT NULL, keyframe_id TEXT NOT NULL,
+        prompt TEXT NOT NULL, negative_prompt TEXT, video_path TEXT,
+        thumbnail_path TEXT, seed TEXT, workflow_name TEXT, params_json TEXT,
+        status TEXT NOT NULL, error_message TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS agent_tasks (
+        id TEXT PRIMARY KEY, project_id TEXT NOT NULL, task_type TEXT NOT NULL,
+        target_json TEXT NOT NULL, instruction TEXT, status TEXT NOT NULL,
+        result_json TEXT, error_message TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS agent_patches (
+        id TEXT PRIMARY KEY, agent_task_id TEXT NOT NULL, project_id TEXT NOT NULL,
+        patch_json TEXT NOT NULL, preview_json TEXT, status TEXT NOT NULL,
+        applied_by TEXT, applied_at TEXT, created_at TEXT NOT NULL
+    )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS segment_asset_refs (
+        id TEXT PRIMARY KEY, segment_id TEXT NOT NULL, asset_type TEXT NOT NULL,
+        asset_id TEXT NOT NULL, created_at TEXT NOT NULL
+    )""")
+    conn.commit()
+    conn.close()
+    print('Database v2 tables initialized')
+
 if __name__ == '__main__':
     init()
+    init_v2()
