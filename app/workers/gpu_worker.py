@@ -16,8 +16,11 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 
 from app.db import get_db
-from app.services import gateway_client, storage, ffmpeg, asset_pipeline, storyboard_agent
-from app.services.config import WORKER_POLL_INTERVAL, PROJECTS_DATA_DIR
+from app.services import gateway_client, storage, ffmpeg, asset_pipeline, storyboard_agent, xdit_client
+from app.services.config import (
+    WORKER_POLL_INTERVAL, PROJECTS_DATA_DIR, H3_QUALITY,
+    H3_PREVIEW_SIZE, H3_HIGH_SIZE,
+)
 
 
 def now():
@@ -131,18 +134,33 @@ def handle_h3_segment(db, job: Dict[str, Any]) -> None:
         raise ValueError("no h3_prompt")
     negative = seg.get("negative_prompt") or "低质量, 模糊, 变形"
 
+    requested_quality = str(p.get("quality") or H3_QUALITY).lower()
+    if requested_quality not in ("preview", "high"):
+        raise ValueError("quality must be preview or high")
+    quality = requested_quality
+    client = gateway_client
+    size = H3_PREVIEW_SIZE
+    if requested_quality == "high":
+        if xdit_client.is_available():
+            client = xdit_client
+            size = H3_HIGH_SIZE
+        else:
+            print("[gpu_worker] WARNING xDiT unavailable; falling back to preview")
+            quality = "preview"
+
     for i in range(variant_count):
-        # 调用 H3 (i2v)
-        task_id = gateway_client.h3_video_create(
+        task_id = client.h3_video_create(
             prompt=h3_prompt,
             first_frame_path=keyframe_abs,
             seconds=15,
-            size="512x512",
+            size=size,
+            negative_prompt=negative,
         )
-        # 轮询等待
-        gateway_client.h3_video_wait(task_id, timeout=1800, poll_interval=15)
-        # 下载视频
-        video_bytes = gateway_client.h3_video_download(task_id)
+        status = client.h3_video_wait(task_id, timeout=1800, poll_interval=15)
+        if client is xdit_client:
+            video_bytes = client.h3_video_download(task_id, status=status)
+        else:
+            video_bytes = client.h3_video_download(task_id)
         fname = f"{uuid.uuid4().hex[:8]}_{i}.mp4"
         abs_path = storage.save_bytes(project_id, "h3_segments", fname, video_bytes)
         rel_path = storage.get_rel_path(project_id, abs_path)
@@ -160,7 +178,7 @@ def handle_h3_segment(db, job: Dict[str, Any]) -> None:
             "video_path, thumbnail_path, seed, workflow_name, params_json, status, created_at, updated_at) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (gid, segment_id, kf["id"], h3_prompt, negative, rel_path, thumb_rel,
-             None, "h3_i2v", json.dumps({"task_id": task_id, "seconds": 15, "size": "1280x720"}),
+             None, "h3_i2v", json.dumps({"task_id": task_id, "seconds": 15, "size": size, "quality": quality}),
              "generated", now(), now()))
     db.execute("UPDATE segments SET status='h3_review', updated_at=? WHERE id=?", (now(), segment_id))
     db.commit()

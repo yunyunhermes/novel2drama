@@ -89,7 +89,12 @@ def select_keyframe(keyframe_id: str):
 
 @router.post("/segments/{segment_id}/h3-generations")
 def gen_h3(segment_id: str, payload: dict = Body(default={})):
-    """触发 H3 15s 段生成, 返回 job_id"""
+    """触发 H3 15s 段生成, payload.quality 支持 preview/high"""
+    quality = str(payload.get("quality", "preview")).lower()
+    if quality not in ("preview", "high"):
+        return {"success": False, "error": {"code": "INVALID_QUALITY", "message": "quality must be preview or high"}}
+    payload = dict(payload)
+    payload["quality"] = quality
     db = get_db()
     seg = db.execute("SELECT * FROM segments WHERE id=?", (segment_id,)).fetchone()
     if not seg:

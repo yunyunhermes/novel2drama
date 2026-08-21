@@ -49,6 +49,12 @@ async def export_page(request: Request, project_id: str):
 from fastapi.responses import FileResponse
 from app.services.config import project_dir as _project_dir
 
+@app.get("/api/v1/system/gpu-status")
+async def gpu_status():
+    """返回 ComfyUI、xDiT 和 gpu-gateway 的当前健康状态。"""
+    from app.services import system_status
+    return {"success": True, "data": system_status.get_gpu_status()}
+
 @app.get("/files/{project_id}/{file_path:path}")
 async def serve_file(project_id: str, file_path: str):
     """提供项目文件下载 (图片/视频/导出)"""

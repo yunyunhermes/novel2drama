@@ -16,6 +16,13 @@ GPU_GATEWAY_BASE_URL = os.getenv("GPU_GATEWAY_BASE_URL", "http://36.138.26.41:16
 GPU_GATEWAY_KEY = os.getenv("GPU_GATEWAY_KEY", "gfw-h3-zimg-qwen-local")
 GPU_GATEWAY_TIMEOUT = int(os.getenv("GPU_GATEWAY_TIMEOUT", "600"))  # 长推理
 
+# xDiT H3 高画质服务 (默认本机双卡服务)
+XDIT_H3_BASE_URL = os.getenv("XDIT_H3_BASE_URL", "http://127.0.0.1:15100")
+XDIT_H3_TIMEOUT = int(os.getenv("XDIT_H3_TIMEOUT", "1800"))
+H3_QUALITY = os.getenv("H3_QUALITY", "preview").lower()
+H3_PREVIEW_SIZE = os.getenv("H3_PREVIEW_SIZE", "512x512")
+H3_HIGH_SIZE = os.getenv("H3_HIGH_SIZE", "768x768")
+
 # 模型名映射 (网关侧注册的名字)
 Z_IMAGE_MODEL = os.getenv("Z_IMAGE_MODEL", "z-image-turbo")
 H3_MODEL = os.getenv("H3_MODEL", "minimax-h3")
