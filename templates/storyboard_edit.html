@@ -3,6 +3,22 @@
 {% block page %}storyboard{% endblock %}
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">02 / STORYBOARD</p><h1>分镜编辑</h1><p class="muted">按 15 秒段组织剧情、节拍与生成提示。</p></div><div class="button-row"><button class="btn secondary" data-action="generate-storyboard">AI 生成分镜</button><button class="btn secondary" data-action="show-patches">待应用 patch</button><button class="btn secondary" data-action="refresh-storyboard">刷新</button></div></div>
-<div id="patch-list" class="panel hidden"></div><div id="segment-list" class="segment-list"><div class="loading">正在加载段落...</div></div>
-<section class="panel"><div class="panel-title"><h2>新增段</h2><span class="step">+</span></div><form data-form="create-segment"><div class="form-row"><label>段编号<input type="number" name="sort_order" min="1" required></label><label>段首衔接<input name="start_transition" placeholder="接上一段"></label><label>段尾衔接<input name="end_transition" placeholder="接下一段"></label></div><label>剧情摘要<textarea name="summary" placeholder="这一段发生了什么"></textarea></label><button class="btn" type="submit">新增段落</button></form></section>
+<div id="patch-list" class="panel hidden"></div>
+<div class="storyboard-layout">
+  <aside class="segment-sidebar">
+    <div class="sidebar-title">段落列表</div>
+    <div id="segment-menu" class="segment-menu"><div class="loading">加载中...</div></div>
+    <button class="btn secondary btn-sm sidebar-add" data-action="show-create-segment">+ 新增段</button>
+    <form data-form="create-segment" class="sidebar-form hidden" id="create-segment-form">
+      <label>段编号<input type="number" name="sort_order" min="1" required></label>
+      <label>剧情摘要<textarea name="summary" placeholder="这一段发生了什么"></textarea></label>
+      <label>段首衔接<input name="start_transition" placeholder="接上一段"></label>
+      <label>段尾衔接<input name="end_transition" placeholder="接下一段"></label>
+      <button class="btn btn-sm" type="submit">创建</button>
+    </form>
+  </aside>
+  <main class="segment-main">
+    <div id="segment-detail" class="segment-detail"><div class="empty-state">请在左侧选择一段</div></div>
+  </main>
+</div>
 {% endblock %}

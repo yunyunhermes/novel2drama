@@ -16,12 +16,122 @@ function beatRow(b){return `<tr data-beat="${b.id}">${beatFields.map(f=>`<td><in
 async function loadBeats(segmentId,container){try{const rows=await api(`/segments/${segmentId}/beats`);container.innerHTML=`<div class="beat-wrap"><table class="beat-table"><thead><tr>${beatFields.map(f=>`<th>${esc({start_ms:'开始毫秒',end_ms:'结束毫秒',shot_size:'景别',camera_movement:'镜头运动',character_action:'人物动作',scene_change:'场景变化',lighting:'光线',composition:'构图',style:'风格',emotion:'情绪',transition:'转场'}[f])}</th>`).join('')}<th>操作</th></tr></thead><tbody>${rows.map(beatRow).join('')}</tbody></table></div><form class="beat-add" data-add-beat="${segmentId}"><button class="btn secondary btn-sm" type="submit">新增节拍</button></form>`;if(!rows.length)container.innerHTML+=empty('暂无节拍')}catch(e){container.innerHTML=empty(e.message)}}
 async function loadKeyframes(segmentId,container){try{const rows=await api(`/segments/${segmentId}/keyframes`);container.innerHTML=rows.length?`<div class="keyframe-grid">${rows.map(k=>`<div class="candidate keyframe ${k.status==='selected'?'selected':''}"><img src="/files/${projectId}/${esc(k.image_path)}" alt="段首图候选"><small>${status(k.status)}</small>${k.status==='selected'?'':'<button class="btn secondary btn-sm" data-select-keyframe="'+k.id+'">选定</button>'}</div>`).join('')}</div>`:empty('暂无段首图候选')}catch(e){container.innerHTML=empty(e.message)}}
 async function loadH3(segmentId,container){try{const rows=await api(`/segments/${segmentId}/h3-generations`);container.innerHTML=rows.length?`<div class="video-grid">${rows.map(g=>`<div><video controls preload="metadata" src="/files/${projectId}/${esc(g.video_path||'')}"></video><div class="card-meta">${status(g.status)} ${g.status==='selected'?'':'<button class="btn secondary btn-sm" data-select-h3="'+g.id+'">选定</button>'}</div></div>`).join('')}</div>`:empty('暂无 H3 视频')}catch(e){container.innerHTML=empty(e.message)}}
-async function loadSegments(){const el=$('#segment-list');if(!el)return;try{const rows=await api(`/projects/${projectId}/segments`);el.innerHTML=rows.length?rows.map(s=>`<article class="segment-card" data-segment="${s.id}"><div class="segment-header"><div><strong>第 ${s.sort_order} 段</strong><span class="muted"> · ${esc(s.summary||'暂无摘要')}</span></div><div class="segment-actions">${status(s.status)}<button class="btn secondary btn-sm" data-build-prompt="${s.id}">构建 prompt</button><button class="btn danger btn-sm" data-delete-segment="${s.id}">删除</button></div></div><div class="segment-body"><form data-edit-segment="${s.id}"><div class="form-row"><label>剧情摘要<textarea name="summary">${esc(s.summary)}</textarea></label><div><label>段首衔接<input name="start_transition" value="${esc(s.start_transition)}"></label><label>段尾衔接<input name="end_transition" value="${esc(s.end_transition)}"></label></div></div><button class="btn secondary btn-sm" type="submit">保存段落</button></form><div class="segment-actions review-section"><button class="btn secondary btn-sm" data-generate-keyframes="${s.id}">生成段首图</button><button class="btn secondary btn-sm" data-generate-h3="${s.id}">生成 H3</button></div><div class="review-section"><h3>段首图候选</h3><div data-keyframes="${s.id}" class="loading">正在加载...</div></div><div class="review-section"><h3>H3 视频</h3><div data-h3="${s.id}" class="loading">正在加载...</div></div><div class="review-section"><h3>节拍表</h3><div data-beats="${s.id}" class="loading">正在加载...</div></div></div></article>`).join(''):empty('暂无段落，请先新增或使用 AI 生成');for(const s of rows){await loadBeats(s.id,$(`[data-beats="${s.id}"]`));await loadKeyframes(s.id,$(`[data-keyframes="${s.id}"]`));await loadH3(s.id,$(`[data-h3="${s.id}"]`))}}catch(e){el.innerHTML=empty(e.message);toast(e.message,true)}}
-async function loadAssets(){try{const rows=await api(`/projects/${projectId}/assets`);$('#asset-list').innerHTML=rows.length?rows.map(a=>`<article class="asset-card"><div class="asset-head"><h3>${esc(a.name)}</h3>${status(a.status)}</div><span class="muted">${a.asset_type==='character'?'角色':'场景'} · ${esc(a.description||'暂无描述')}</span><small>锚点：${esc(a.appearance_anchor||a.time||'未设置')}</small><div class="review-section"><button class="btn secondary btn-sm" data-generate-candidates="${a.id}">生成候选图</button><button class="btn secondary btn-sm" data-confirm-asset="${a.id}">确认资产</button><div data-candidates="${a.id}" class="candidate-grid"></div></div></article>`).join(''):empty('暂无资产');for(const a of rows)await loadCandidates(a.id,$(`[data-candidates="${a.id}"]`))}catch(e){$('#asset-list').innerHTML=empty(e.message);toast(e.message,true)}}
-async function loadCandidates(assetId,el){try{const rows=await api(`/assets/${assetId}/candidates`);el.innerHTML=rows.map(c=>`<div class="candidate ${c.status==='selected'?'selected':''}"><img src="/files/${projectId}/${esc(c.image_path)}" alt="资产候选图"><button class="btn secondary btn-sm" data-select-candidate="${c.id}">${c.status==='selected'?'已选定':'选定'}</button></div>`).join('')}catch(e){el.innerHTML=''}}
+// ============ 分镜编辑 (左侧菜单 + 单段详情) ============
+let _currentSegmentId = null;
+let _segmentsCache = [];
+
+const beatFields=['start_ms','end_ms','shot_size','camera_movement','character_action','scene_change','lighting','composition','style','emotion','transition'];
+
+function beatRow(b){
+  const cells = beatFields.map(f=>{
+    const isLong = ['character_action','scene_change','lighting','composition'].includes(f);
+    const val = esc(b[f]);
+    if(isLong) return `<td class="beat-long"><textarea data-field="${f}" rows="2">${val}</textarea></td>`;
+    return `<td><input data-field="${f}" value="${val}" type="${f.includes('_ms')?'number':'text'}"></td>`;
+  }).join('');
+  return `<tr data-beat="${b.id}">${cells}<td><button class="btn danger btn-sm" data-delete-beat="${b.id}">删</button></td></tr>`;
+}
+
+async function loadBeats(segmentId, container){
+  try{
+    const rows = await api(`/segments/${segmentId}/beats`);
+    const labels = {start_ms:'开始',end_ms:'结束',shot_size:'景别',camera_movement:'运镜',character_action:'人物动作',scene_change:'场景变化',lighting:'光线',composition:'构图',style:'风格',emotion:'情绪',transition:'转场'};
+    container.innerHTML = `<div class="beat-wrap"><table class="beat-table"><thead><tr>${beatFields.map(f=>`<th>${labels[f]||f}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map(beatRow).join('')}</tbody></table></div><form class="beat-add" data-add-beat="${segmentId}"><button class="btn secondary btn-sm" type="submit">+ 新增节拍</button></form>`;
+    if(!rows.length) container.innerHTML += empty('暂无节拍');
+  }catch(e){container.innerHTML = empty(e.message)}
+}
+
+async function loadKeyframes(segmentId, container){
+  try{
+    const rows = await api(`/segments/${segmentId}/keyframes`);
+    container.innerHTML = rows.length
+      ? `<div class="keyframe-grid">${rows.map(k=>`<div class="candidate keyframe ${k.status==='selected'?'selected':''}"><img src="/files/${projectId}/${esc(k.image_path)}" alt="段首图"><small>${status(k.status)}</small>${k.status==='selected'?'':'<button class="btn secondary btn-sm" data-select-keyframe="'+k.id+'">选定</button>'}</div>`).join('')}</div>`
+      : empty('暂无段首图候选');
+  }catch(e){container.innerHTML = empty(e.message)}
+}
+
+async function loadH3(segmentId, container){
+  try{
+    const rows = await api(`/segments/${segmentId}/h3-generations`);
+    container.innerHTML = rows.length
+      ? `<div class="video-grid">${rows.map(g=>`<div><video controls preload="metadata" src="/files/${projectId}/${esc(g.video_path||'')}"></video><div class="card-meta">${status(g.status)} ${g.status==='selected'?'':'<button class="btn secondary btn-sm" data-select-h3="'+g.id+'">选定</button>'}</div></div>`).join('')}</div>`
+      : empty('暂无 H3 视频');
+  }catch(e){container.innerHTML = empty(e.message)}
+}
+
+// 左侧菜单
+async function loadSegmentMenu(){
+  const el = $('#segment-menu');
+  if(!el) return;
+  try{
+    const rows = await api(`/projects/${projectId}/segments`);
+    _segmentsCache = rows;
+    el.innerHTML = rows.length
+      ? rows.map(s=>`<div class="segment-menu-item ${s.id===_currentSegmentId?'active':''}" data-segment-id="${s.id}"><span class="seg-no">第 ${s.sort_order} 段</span><span class="seg-summary">${esc((s.summary||'').slice(0,30))}</span><span class="seg-status">${status(s.status)}</span></div>`).join('')
+      : empty('暂无段落');
+    // 默认选中第一段
+    if(!_currentSegmentId && rows.length) selectSegment(rows[0].id);
+  }catch(e){el.innerHTML = empty(e.message)}
+}
+
+// 右侧详情
+async function loadSegmentDetail(segmentId){
+  const el = $('#segment-detail');
+  if(!el) return;
+  const s = _segmentsCache.find(x=>x.id===segmentId);
+  if(!s){el.innerHTML = empty('段不存在');return}
+  el.innerHTML = `
+    <div class="segment-detail-header">
+      <div><h2>第 ${s.sort_order} 段</h2><span class="muted">${esc(s.summary||'')}</span></div>
+      <div class="segment-actions">${status(s.status)}
+        <button class="btn secondary btn-sm" data-build-prompt="${s.id}">构建 prompt</button>
+        <button class="btn danger btn-sm" data-delete-segment="${s.id}">删除</button>
+      </div>
+    </div>
+    <form data-edit-segment="${s.id}" class="segment-form">
+      <label>剧情摘要<textarea name="summary" rows="3">${esc(s.summary)}</textarea></label>
+      <div class="form-row"><label>段首衔接<input name="start_transition" value="${esc(s.start_transition)}"></label><label>段尾衔接<input name="end_transition" value="${esc(s.end_transition)}"></label></div>
+      <button class="btn secondary btn-sm" type="submit">保存段落</button>
+    </form>
+    <div class="review-section">
+      <div class="section-header"><h3>段首图</h3><button class="btn secondary btn-sm" data-generate-keyframes="${s.id}">生成段首图</button></div>
+      <div data-keyframes="${s.id}" class="loading">加载中...</div>
+    </div>
+    <div class="review-section">
+      <div class="section-header"><h3>H3 视频</h3><button class="btn secondary btn-sm" data-generate-h3="${s.id}">生成 H3</button></div>
+      <div data-h3="${s.id}" class="loading">加载中...</div>
+    </div>
+    <div class="review-section">
+      <div class="section-header"><h3>节拍表</h3></div>
+      <div data-beats="${s.id}" class="loading">加载中...</div>
+    </div>`;
+  await Promise.all([
+    loadBeats(s.id, $(`[data-beats="${s.id}"]`)),
+    loadKeyframes(s.id, $(`[data-keyframes="${s.id}"]`)),
+    loadH3(s.id, $(`[data-h3="${s.id}"]`))
+  ]);
+}
+
+function selectSegment(segmentId){
+  _currentSegmentId = segmentId;
+  $$('.segment-menu-item').forEach(el=>el.classList.toggle('active', el.dataset.segmentId===segmentId));
+  loadSegmentDetail(segmentId);
+}
+
+// 局部刷新 (不丢滚动位置)
+async function refreshSegmentDetail(segmentId){
+  const scrollY = window.scrollY;
+  await loadSegmentDetail(segmentId || _currentSegmentId);
+  window.scrollTo({top: scrollY, behavior: 'instant'});
+}
+
+async function refreshSegmentMenu(){
+  await loadSegmentMenu();
+}
+
 async function loadExports(){try{const segs=await api(`/projects/${projectId}/segments`);$('#confirmed-segments').innerHTML=segs.filter(s=>s.status==='confirmed').map(s=>`<div class="job-row"><span>第 ${s.sort_order} 段 · ${esc(s.summary||'')}</span><span class="badge confirmed">已确认</span></div>`).join('')||empty('暂无已确认段，请先完成 H3 复核');const rows=await api(`/projects/${projectId}/exports`);$('#export-list').innerHTML=rows.length?rows.map(x=>`<div class="export-row"><div><strong>${esc(x.title)}</strong><div class="muted">${esc(x.created_at||'')} · ${x.resolution||''}</div></div><div>${status(x.status)} ${x.output_path?`<a class="btn secondary btn-sm" href="/files/${projectId}/${esc(x.output_path)}" download>下载视频</a>`:''}</div></div>`).join(''):empty('暂无导出任务')}catch(e){toast(e.message,true)}}
 async function submit(url,body,success,refresh){try{await api(url,{method:'POST',body:JSON.stringify(body)});toast(success);if(refresh)await refresh()}catch(e){toast(e.message,true)}}
-document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects()})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,formData(f),'版本保存成功',async()=>{f.reset();await loadNovels()})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value)},'段落创建成功',async()=>{f.reset();await loadSegments()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets()})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value)},'导出任务已创建',loadExports)}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',loadSegments)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',loadSegments)}});
-document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.action==='refresh-projects')return loadProjects();if(b.dataset.action==='refresh-detail')return loadDetail();if(b.dataset.action==='refresh-novels')return loadNovels();if(b.dataset.action==='refresh-storyboard')return loadSegments();if(b.dataset.action==='refresh-assets')return loadAssets();if(b.dataset.action==='refresh-exports')return loadExports();if(b.dataset.activateVersion){await api(`/projects/${projectId}/novel-versions/${b.dataset.activateVersion}/activate`,{method:'POST'});toast('版本已激活');return loadNovels()}if(b.dataset.deleteSegment){if(confirm('确定删除这一段吗？')){await api(`/projects/${projectId}/segments/${b.dataset.deleteSegment}`,{method:'DELETE'});toast('段落已删除');return loadSegments()}}if(b.dataset.deleteBeat){await api(`/beats/${b.dataset.deleteBeat}`,{method:'DELETE'});toast('节拍已删除');return loadSegments()}if(b.dataset.selectCandidate){await api(`/asset-candidates/${b.dataset.selectCandidate}/select`,{method:'POST'});toast('候选图已选定');return loadAssets()}if(b.dataset.confirmAsset){await api(`/assets/${b.dataset.confirmAsset}/confirm`,{method:'POST'});toast('资产已确认');return loadAssets()}if(b.dataset.generateCandidates){return submit(`/assets/${b.dataset.generateCandidates}/candidates/generate`,{},'候选图生成任务已排队',loadAssets)}if(b.dataset.selectKeyframe){await api(`/keyframes/${b.dataset.selectKeyframe}/select`,{method:'POST'});toast('段首图已选定');return loadSegments()}if(b.dataset.selectH3){await api(`/h3-generations/${b.dataset.selectH3}/select`,{method:'POST'});toast('H3视频已选定');return loadSegments()}if(b.dataset.generateKeyframes){return submit(`/segments/${b.dataset.generateKeyframes}/keyframes/generate`,{},'段首图生成任务已排队',loadSegments)}if(b.dataset.generateH3){return submit(`/segments/${b.dataset.generateH3}/h3-generations`,{},'H3生成任务已排队',loadSegments)}if(b.dataset.buildPrompt){const r=await api(`/segments/${b.dataset.buildPrompt}/keyframe-prompt/build`,{method:'POST'});toast(`prompt已构建：${(r.keyframe_prompt||'').slice(0,30)}`)}if(b.dataset.action==='generate-storyboard')return submit(`/projects/${projectId}/storyboard/generate`,{},'AI分镜任务已排队',loadSegments);if(b.dataset.action==='show-patches'){const rows=await api(`/projects/${projectId}/agent-patches`);const box=$('#patch-list');box.classList.remove('hidden');box.innerHTML=`<div class="panel-title"><h2>待应用 patch</h2><button class="btn secondary btn-sm" data-action="hide-patches">收起</button></div>`+(rows.filter(x=>x.status==='pending').map(x=>`<div class="job-row"><span>${esc(x.preview_json||x.patch_json)}</span><button class="btn btn-sm" data-apply-patch="${x.id}">应用</button></div>`).join('')||empty('暂无待应用 patch'))}if(b.dataset.action==='hide-patches')$('#patch-list').classList.add('hidden');if(b.dataset.applyPatch){await api(`/agent-patches/${b.dataset.applyPatch}/apply`,{method:'POST'});toast('patch已应用');return loadSegments()}}catch(err){toast(err.message,true)}});
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects()})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,formData(f),'版本保存成功',async()=>{f.reset();await loadNovels()})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value)},'段落创建成功',async()=>{f.reset();await refreshSegmentDetail()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets()})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value)},'导出任务已创建',loadExports)}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',refreshSegmentDetail)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',refreshSegmentDetail)}});
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;try{if(b.dataset.action==='refresh-projects')return loadProjects();if(b.dataset.action==='refresh-detail')return loadDetail();if(b.dataset.action==='refresh-novels')return loadNovels();if(b.dataset.action==='refresh-storyboard')return refreshSegmentDetail();if(b.dataset.action==='refresh-assets')return loadAssets();if(b.dataset.action==='refresh-exports')return loadExports();if(b.dataset.activateVersion){await api(`/projects/${projectId}/novel-versions/${b.dataset.activateVersion}/activate`,{method:'POST'});toast('版本已激活');return loadNovels()}if(b.dataset.deleteSegment){if(confirm('确定删除这一段吗？')){await api(`/projects/${projectId}/segments/${b.dataset.deleteSegment}`,{method:'DELETE'});toast('段落已删除');return refreshSegmentDetail()}}if(b.dataset.deleteBeat){await api(`/beats/${b.dataset.deleteBeat}`,{method:'DELETE'});toast('节拍已删除');return refreshSegmentDetail()}if(b.dataset.selectCandidate){await api(`/asset-candidates/${b.dataset.selectCandidate}/select`,{method:'POST'});toast('候选图已选定');return loadAssets()}if(b.dataset.confirmAsset){await api(`/assets/${b.dataset.confirmAsset}/confirm`,{method:'POST'});toast('资产已确认');return loadAssets()}if(b.dataset.generateCandidates){return submit(`/assets/${b.dataset.generateCandidates}/candidates/generate`,{},'候选图生成任务已排队',loadAssets)}if(b.dataset.selectKeyframe){await api(`/keyframes/${b.dataset.selectKeyframe}/select`,{method:'POST'});toast('段首图已选定');return refreshSegmentDetail()}if(b.dataset.selectH3){await api(`/h3-generations/${b.dataset.selectH3}/select`,{method:'POST'});toast('H3视频已选定');return refreshSegmentDetail()}if(b.dataset.generateKeyframes){return submit(`/segments/${b.dataset.generateKeyframes}/keyframes/generate`,{},'段首图生成任务已排队',refreshSegmentDetail)}if(b.dataset.generateH3){return submit(`/segments/${b.dataset.generateH3}/h3-generations`,{},'H3生成任务已排队',refreshSegmentDetail)}if(b.dataset.buildPrompt){const r=await api(`/segments/${b.dataset.buildPrompt}/keyframe-prompt/build`,{method:'POST'});toast(`prompt已构建：${(r.keyframe_prompt||'').slice(0,30)}`)}if(b.dataset.action==='generate-storyboard')return submit(`/projects/${projectId}/storyboard/generate`,{},'AI分镜任务已排队',refreshSegmentDetail);if(b.dataset.action==='show-patches'){const rows=await api(`/projects/${projectId}/agent-patches`);const box=$('#patch-list');box.classList.remove('hidden');box.innerHTML=`<div class="panel-title"><h2>待应用 patch</h2><button class="btn secondary btn-sm" data-action="hide-patches">收起</button></div>`+(rows.filter(x=>x.status==='pending').map(x=>`<div class="job-row"><span>${esc(x.preview_json||x.patch_json)}</span><button class="btn btn-sm" data-apply-patch="${x.id}">应用</button></div>`).join('')||empty('暂无待应用 patch'))}if(b.dataset.action==='hide-patches')$('#patch-list').classList.add('hidden');if(b.dataset.applyPatch){await api(`/agent-patches/${b.dataset.applyPatch}/apply`,{method:'POST'});toast('patch已应用');return refreshSegmentDetail()}}catch(err){toast(err.message,true)}});
 document.addEventListener('change',e=>{const input=e.target.closest('[data-field]');if(!input)return;const row=input.closest('tr');clearTimeout(row._timer);row._timer=setTimeout(()=>{const data={};row.querySelectorAll('[data-field]').forEach(x=>data[x.dataset.field]=x.type==='number'?Number(x.value):x.value);api(`/beats/${row.dataset.beat}`,{method:'PATCH',body:JSON.stringify(data)}).then(()=>toast('节拍已保存')).catch(err=>toast(err.message,true))},350)});
-const page=document.body.dataset.page;if(page==='projects')loadProjects();if(page==='project-detail')loadDetail();if(page==='novel')loadNovels();if(page==='storyboard')loadSegments();if(page==='assets')loadAssets();if(page==='export')loadExports();
+const page=document.body.dataset.page;if(page==='projects')loadProjects();if(page==='project-detail')loadDetail();if(page==='novel')loadNovels();if(page==='storyboard')loadSegmentMenu();if(page==='assets')loadAssets();if(page==='export')loadExports();
