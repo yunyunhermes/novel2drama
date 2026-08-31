@@ -4,14 +4,50 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}novel2drama{% endblock %}</title>
-    <link rel="stylesheet" href="/static/app.css?v=20260831ep">
+    <link rel="stylesheet" href="/static/app.css?v=20260831sb">
 </head>
 <body data-page="{% block page %}{% endblock %}" data-project-id="{{ project_id|default('') }}">
-    <div class="shell">
-        <header class="topbar"><a class="brand" href="/">novel2drama <span>制作工作台</span></a><nav><a href="/">项目</a>{% if project_id %}<a href="/projects/{{ project_id }}">当前项目</a>{% endif %}</nav></header>
-        <main class="container">{% block content %}{% endblock %}</main>
+    <div class="shell layout">
+        <!-- 常驻左侧侧栏 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-head">
+                <a class="brand" href="/">novel2drama <span>工作台</span></a>
+                <button class="icon-btn" data-action="toggle-sidebar" title="收起 / 展开侧栏" aria-label="收起侧栏">«</button>
+            </div>
+
+            {% if project_id %}
+            <!-- 项目上下文：项目名 + 当前集 + 菜单 -->
+            <div class="sidebar-project" id="sidebar-project"><div class="loading">加载项目...</div></div>
+            <div class="sidebar-episode" id="sidebar-episode"></div>
+
+            <nav class="sidebar-menu" id="sidebar-menu">
+                <p class="menu-group-label">工作区</p>
+                <a class="menu-item" data-page="project-detail" href="/projects/{{ project_id }}"><span class="menu-ico">◧</span><span class="menu-text">项目概览</span></a>
+                <a class="menu-item" data-page="novel" href="/projects/{{ project_id }}/novels"><span class="menu-ico">▤</span><span class="menu-text">小说版本</span></a>
+                <a class="menu-item" data-page="storyboard" href="/projects/{{ project_id }}/storyboard"><span class="menu-ico">▦</span><span class="menu-text">分镜编辑</span></a>
+                <a class="menu-item" data-page="assets" href="/projects/{{ project_id }}/assets"><span class="menu-ico">✦</span><span class="menu-text">资产复核</span></a>
+                <a class="menu-item" data-page="export" href="/projects/{{ project_id }}/export"><span class="menu-ico">▼</span><span class="menu-text">成片导出</span></a>
+
+                <details class="menu-group" id="jobs-menu">
+                    <summary class="menu-group-summary">更多 <span class="muted">任务动态 / 统计</span></summary>
+                    <a class="menu-item" data-page="project-detail" data-jobs-link href="/projects/{{ project_id }}#jobs"><span class="menu-ico">⛁</span><span class="menu-text">任务动态</span></a>
+                </details>
+            </nav>
+            {% else %}
+            <nav class="sidebar-menu" id="sidebar-menu">
+                <a class="menu-item" data-page="projects" href="/"><span class="menu-ico">▦</span><span class="menu-text">项目管理</span></a>
+            </nav>
+            {% endif %}
+
+            <div class="sidebar-foot">
+                {% if project_id %}<a class="menu-item" href="/"><span class="menu-ico">≡</span><span class="menu-text">返回项目列表</span></a>{% endif %}
+            </div>
+        </aside>
+
+        <!-- 内容区 -->
+        <main class="content">{% block content %}{% endblock %}</main>
     </div>
     <div id="toast" class="toast" role="status"></div>
-    <script src="/static/app.js?v=20260831ep"></script>
+    <script src="/static/app.js?v=20260831sb"></script>
 </body>
 </html>

@@ -2,6 +2,6 @@
 {% block title %}资产库 - novel2drama{% endblock %}
 {% block page %}assets{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">03 / ASSETS</p><h1>资产复核</h1><p class="muted">统一角色与场景锚点，生成候选图并确认可用资产。</p></div><a class="btn secondary" href="/projects/{{ project_id }}">返回项目</a></div>
+<div class="page-heading"><div><p class="eyebrow">03 / ASSETS</p><h1>资产复核</h1><p class="muted">统一角色与场景锚点，生成候选图并确认可用资产。</p></div></div>
 <section class="split-layout"><div><div class="panel-title"><h2>角色与场景</h2><button class="btn secondary btn-sm" data-action="refresh-assets">刷新</button></div><div id="asset-list" class="asset-grid"><div class="loading">正在加载资产...</div></div></div><aside class="panel"><div class="panel-title"><h2>新增资产</h2><span class="step">01</span></div><form data-form="create-asset"><label>类型<select name="asset_type"><option value="character">角色</option><option value="scene">场景</option></select></label><label>名称<input name="name" required placeholder="例如：沈砚"></label><label>描述<textarea name="description"></textarea></label><label>外貌锚点<input name="appearance_anchor" placeholder="年龄、发型、面部特征"></label><label>服装锚点<input name="costume_anchor"></label><label>气质锚点<input name="temperament_anchor"></label><div class="form-row"><label>时间<input name="time"></label><label>天气<input name="weather"></label></div><label>光线<input name="lighting"></label><label>色彩倾向<input name="color_tendency"></label><label>负面提示<input name="negative_prompt"></label><button class="btn" type="submit">创建资产</button></form></aside></section>
 {% endblock %}

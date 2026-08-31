@@ -3,39 +3,28 @@
 {% block page %}project-detail{% endblock %}
 {% block content %}
 <div id="project-info" class="loading">正在加载项目...</div>
-<div id="episode-bar" class="episode-bar-wrap"></div>
 
 <!-- 项目概览 -->
 <section class="panel overview-panel">
   <div class="panel-title">
     <div><p class="eyebrow">OVERVIEW</p><h2>项目概览</h2></div>
-    <button class="btn secondary btn-sm" data-action="refresh-detail">刷新</button>
+    <div class="overview-tools">
+      <span id="project-status" class="badge">草稿</span>
+      <button class="btn secondary btn-sm" data-action="refresh-detail">刷新</button>
+    </div>
   </div>
   <div id="project-overview" class="overview-grid">
     <div class="loading">正在加载概览...</div>
   </div>
 </section>
 
-<!-- 制作进度 -->
-<section class="panel progress-panel">
-  <div class="panel-title">
-    <div><p class="eyebrow">WORKFLOW</p><h2>制作进度</h2></div>
-    <span id="project-status" class="badge">草稿</span>
+<!-- 任务动态（收起到侧栏二级，可从侧栏「任务动态」进入） -->
+<details class="jobs-drawer" id="jobs-drawer">
+  <summary class="jobs-drawer-summary">任务动态 <span class="muted">点击展开查看生成任务</span></summary>
+  <div class="panel inset">
+    <div id="job-list" class="job-list">
+      <div class="loading">正在加载任务...</div>
+    </div>
   </div>
-  <div id="stage-progress" class="stage-track"></div>
-</section>
-
-<!-- 模块入口 -->
-<section class="module-grid" id="module-links"></section>
-
-<!-- 任务动态 -->
-<section class="panel">
-  <div class="panel-title">
-    <h2>任务动态</h2>
-    <button class="btn secondary btn-sm" data-action="refresh-jobs">刷新</button>
-  </div>
-  <div id="job-list" class="job-list">
-    <div class="loading">正在加载任务...</div>
-  </div>
-</section>
+</details>
 {% endblock %}

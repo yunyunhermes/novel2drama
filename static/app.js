@@ -4,17 +4,17 @@ const projectId=document.body.dataset.projectId;
 let currentEpisodeId = new URLSearchParams(location.search).get('episode_id') || localStorage.getItem('n2d_episode_'+projectId) || null;
 const epQuery = ()=> currentEpisodeId ? `?episode_id=${encodeURIComponent(currentEpisodeId)}` : '';
 async function loadEpisodeBar(){
-  const el=$('#episode-bar'); if(!el) return;
+  const el=$('#sidebar-episode'); if(!el) return;
   try{
     const eps=await api(`/projects/${projectId}/episodes`);
     if(!eps.length){
-      el.innerHTML=`<div class="episode-bar"><span class="muted">暂无分集</span><button class="btn secondary btn-sm" data-action="create-episode">+ 新建分集</button></div>`;
+      el.innerHTML=`<div class="sb-ep-row"><span class="muted">暂无分集</span><button class="btn secondary btn-sm" data-action="create-episode">新建分集</button></div>`;
       return;
     }
     if(!currentEpisodeId || !eps.some(e=>e.id===currentEpisodeId)) currentEpisodeId=eps[0].id;
     localStorage.setItem('n2d_episode_'+projectId, currentEpisodeId);
-    const cur=eps.find(e=>e.id===currentEpisodeId);
-    el.innerHTML=`<div class="episode-bar"><label class="episode-label">当前分集</label><select class="episode-select" data-episode-select>${eps.map(e=>`<option value="${e.id}" ${e.id===currentEpisodeId?'selected':''}>${e.title && e.title!==`第${e.episode_no}集` ? `第${e.episode_no}集 · ${esc(e.title)}` : esc(e.title||`第${e.episode_no}集`)}</option>`).join('')}</select><button class="btn secondary btn-sm" data-action="create-episode">+ 新建分集</button><span class="muted">${cur&&cur.summary?esc(cur.summary):''}</span></div>`;
+    el.innerHTML=`<label class="sb-ep-label">当前分集</label><div class="sb-ep-row"><select class="episode-select" data-episode-select>${eps.map(e=>`<option value="${e.id}" ${e.id===currentEpisodeId?'selected':''}>${e.title && e.title!==`第${e.episode_no}集` ? `第${e.episode_no}集 · ${esc(e.title)}` : esc(e.title||`第${e.episode_no}集`)}</option>`).join('')}</select><button class="btn secondary btn-sm" data-action="create-episode">+</button></div>`;
+    appendEpisodeQuery();
   }catch(e){ el.innerHTML=empty(e.message); }
 }
 document.addEventListener('change',e=>{
@@ -42,8 +42,32 @@ async function api(path,options={}){const res=await fetch(API+path,{headers:{'Co
 function formData(form){return Object.fromEntries(new FormData(form).entries())}
 function empty(text){return `<div class="empty">${esc(text)}</div>`}
 function status(v){return `<span class="status ${esc(v)}">${esc({draft:'草稿',queued:'排队中',running:'生成中',confirmed:'已确认',selected:'已选定',completed:'已完成',failed:'失败',keyframe_generating:'段首图生成中',h3_generating:'H3生成中'}[v]||v||'未知')}</span>`}
+// ===== 常驻侧栏：项目名 + 当前集 + 菜单高亮 + episode_id 注入 =====
+function appendEpisodeQuery(){
+  if(!currentEpisodeId) return;
+  $$('#sidebar-menu .menu-item[href]').forEach(a=>{
+    if(a.dataset.jobsLink || a.href.startsWith('#')) return;
+    const u=new URL(a.href, location.origin); u.searchParams.set('episode_id', currentEpisodeId); a.href=u.toString();
+  });
+}
+async function loadSidebar(){
+  const projEl=$('#sidebar-project');
+  if(projEl && projectId){
+    try{
+      const p=await api(`/projects/${projectId}`);
+      projEl.innerHTML=`<div class="sb-project-name">${esc(p.name)}</div>${p.description?`<div class="sb-project-meta muted">${esc(p.description)}</div>`:''}`;
+    }catch(e){projEl.innerHTML=empty(e.message)}
+  }
+  // 高亮当前菜单项
+  const curPage=document.body.dataset.page;
+  $$('#sidebar-menu .menu-item').forEach(m=>{
+    if(m.dataset.page===curPage && !m.dataset.jobsLink) m.classList.add('active');
+  });
+  // 选集器 + 当前集 + 注入 episode_id
+  await loadEpisodeBar();
+}
 async function loadProjects(){const el=$('#project-list');if(!el)return;try{const rows=await api('/projects');el.innerHTML=rows.length?rows.map(p=>`<article class="project-card"><h2>${esc(p.name)}</h2><p class="muted">${esc(p.description||'暂无项目描述')}</p><div class="card-meta"><span>${status(p.status)}</span><span>${p.target_duration_seconds||0} 秒</span></div><a class="btn" href="/projects/${p.id}">进入项目</a></article>`).join(''):empty('还没有项目，先创建一个制作项目。')}catch(e){el.innerHTML=empty(e.message);toast(e.message,true)}}
-async function loadDetail(){try{const p=await api(`/projects/${projectId}`);$('#project-info').innerHTML=`<div class="page-heading"><div><p class="eyebrow">PROJECT</p><h1>${esc(p.name)}</h1><p class="muted">${esc(p.description||'暂无描述')}</p></div><div class="card-meta"><span>目标时长 ${p.target_duration_seconds||0} 秒</span><span>${esc(p.style_prompt||'未设置风格')}</span></div></div>`;$('#project-status').outerHTML=`<span id="project-status" class="badge ${esc(p.status)}">${esc(p.status)}</span>`;const stages=['draft','novel_ready','storyboard','assets','keyframes','h3','export'];const labels=['草稿','小说就绪','分镜','资产','段首图','H3视频','导出'];const index=Math.max(0,stages.indexOf(p.status));$('#stage-progress').innerHTML=stages.map((s,i)=>`<div class="stage ${i<index?'done':''} ${i===index?'current':''}">${labels[i]}</div>`).join('');$('#module-links').innerHTML=[['novels','小说版本','导入原稿并选择版本'],['storyboard','分镜编辑','段落、节拍与AI生成'],['assets','资产复核','角色、场景与候选图'],['export','成片导出','确认段落并生成视频']].map(x=>`<a class="module-link" href="/projects/${projectId}/${x[0]}${epQuery()}"><strong>${x[1]}</strong><span>${x[2]}</span></a>`).join('');await loadJobs()}catch(e){$('#project-info').innerHTML=empty(e.message);toast(e.message,true)}}
+async function loadDetail(){try{const p=await api(`/projects/${projectId}`);$('#project-info').innerHTML=`<div class="page-heading"><div><p class="eyebrow">PROJECT</p><h1>${esc(p.name)}</h1><p class="muted">${esc(p.description||'暂无描述')}</p></div><div class="card-meta"><span>目标时长 ${p.target_duration_seconds||0} 秒</span><span>${esc(p.style_prompt||'未设置风格')}</span></div></div>`;$('#project-status').outerHTML=`<span id="project-status" class="badge ${esc(p.status)}">${esc(p.status)}</span>`;bindJobsDrawer();}catch(e){$('#project-info').innerHTML=empty(e.message);toast(e.message,true)}}
 async function loadJobs(){try{const rows=await api(`/projects/${projectId}/jobs${epQuery()}`);$('#job-list').innerHTML=rows.length?rows.map(j=>`<div class="job-row"><div><strong>${esc(j.job_type)}</strong><div class="muted">${esc(j.created_at||'')}</div></div>${status(j.status)}</div>`).join(''):empty('暂无生成任务')}catch(e){$('#job-list').innerHTML=empty(e.message)}}
 let _activeVersionId = null;
 async function loadNovels(){
@@ -328,10 +352,20 @@ async function loadOverview(){
   }catch(e){el.innerHTML=empty(e.message)}
 }
 
+// 任务动态抽屉：展开时才加载
+function bindJobsDrawer(){
+  const d=$('#jobs-drawer'); if(!d) return;
+  if(!d._bound){ d._bound=true; d.addEventListener('toggle',()=>{ if(d.open && !d._loaded){ d._loaded=true; loadJobs(); } }); }
+}
+// 侧栏收起 / 展开
+document.addEventListener('click',e=>{
+  const t=e.target.closest('[data-action="toggle-sidebar"]'); if(!t) return;
+  document.body.classList.toggle('sidebar-collapsed');
+});
 const page=document.body.dataset.page;
-if(page==='projects')loadProjects();
-if(page==='project-detail'){(async()=>{await loadEpisodeBar();loadDetail();loadOverview()})()}
-if(page==='novel'){(async()=>{await loadEpisodeBar();loadNovels()})()}
-if(page==='storyboard'){(async()=>{await loadEpisodeBar();loadSegmentMenu()})()}
-if(page==='assets')loadAssets();
-if(page==='export'){(async()=>{await loadEpisodeBar();loadExports()})()}
+if(page==='projects')loadSidebar().then(loadProjects);
+if(page==='project-detail'){(async()=>{await loadSidebar();await loadDetail();loadOverview();if(location.hash==='#jobs'){const d=$('#jobs-drawer');if(d){d.open=true;d.dispatchEvent(new Event('toggle'))}}})()}
+if(page==='novel'){(async()=>{await loadSidebar();loadNovels()})()}
+if(page==='storyboard'){(async()=>{await loadSidebar();loadSegmentMenu()})()}
+if(page==='assets'){loadSidebar().then(loadAssets)}
+if(page==='export'){(async()=>{await loadSidebar();loadExports()})()}
