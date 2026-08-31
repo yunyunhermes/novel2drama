@@ -369,3 +369,34 @@ if(page==='novel'){(async()=>{await loadSidebar();loadNovels()})()}
 if(page==='storyboard'){(async()=>{await loadSidebar();loadSegmentMenu()})()}
 if(page==='assets'){loadSidebar().then(loadAssets)}
 if(page==='export'){(async()=>{await loadSidebar();loadExports()})()}
+
+// ===== 资产：直接上传本地素材 + 列表渲染 =====
+async function uploadForm(url, formData){
+  const res=await fetch(API+url,{method:'POST',body:formData});
+  let body={};try{body=await res.json()}catch{}
+  if(!res.ok||body.success===false)throw new Error(body.error?.message||'上传失败（'+res.status+'）');
+  return body.data;
+}
+document.addEventListener('submit',async e=>{
+  const f=e.target; if(!f.dataset || f.dataset.form!=='upload-asset') return;
+  e.preventDefault();
+  try{
+    await uploadForm(`/projects/${projectId}/assets/upload`,new FormData(f));
+    toast('素材已上传'); f.reset(); await loadAssets();
+  }catch(err){toast(err.message,true)}
+});
+async function loadAssets(){
+  const el=$('#asset-list'); if(!el) return;
+  try{
+    const rows=await api(`/projects/${projectId}/assets`);
+    el.innerHTML=rows.length?rows.map(a=>`<article class="asset-card" data-asset-id="${a.id}">
+      <div class="asset-head"><h3>${esc(a.name)}</h3>${status(a.status)}</div>
+      <div class="asset-type">${a.asset_type==='character'?'角色':'场景'}</div>
+      ${a.selected_image?`<img src="/files/${projectId}/${esc(a.selected_image)}" alt="素材图">`:`<div class="asset-placeholder">未选定素材图</div>`}
+      <div class="card-meta"><span>${esc(a.description||'')}</span></div>
+      <div class="button-row">
+        <button class="btn secondary btn-sm" data-generate-candidates="${a.id}">生成候选</button>
+        <button class="btn secondary btn-sm" data-confirm-asset="${a.id}">${a.status==='confirmed'?'已确认':'确认'}</button>
+      </div></article>`).join(''):empty('暂无资产，用右侧表单新增或上传本地素材。');
+  }catch(e){el.innerHTML=empty(e.message);toast(e.message,true)}
+}

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.db import get_db
 from app.models import AssetCreate
 import uuid
@@ -12,7 +12,12 @@ def now():
 @router.get("/projects/{project_id}/assets")
 def list_assets(project_id: str):
     db = get_db()
-    rows = db.execute("SELECT * FROM assets WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
+    rows = db.execute(
+        "SELECT a.*, c.image_path AS selected_image "
+        "FROM assets a LEFT JOIN asset_candidates c ON c.id=a.selected_candidate_id "
+        "WHERE a.project_id=? ORDER BY a.created_at DESC",
+        (project_id,),
+    ).fetchall()
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
 
@@ -78,3 +83,49 @@ def select_asset_candidate(candidate_id: str):
     except ValueError as e:
         db.close()
         return {"success": False, "error": {"code": "NOT_FOUND", "message": str(e)}}
+
+
+# ============ 资产上传 (直接上传本地图片) ============
+import os as _os
+from app.services import storage
+
+@router.post("/projects/{project_id}/assets/upload")
+async def upload_asset(project_id: str,
+    file: UploadFile = File(...),
+    asset_type: str = Form("character"),
+    name: str = Form(...),
+    description: str = Form(None),
+    appearance_anchor: str = Form(None),
+    costume_anchor: str = Form(None),
+    temperament_anchor: str = Form(None),
+    time: str = Form(None), weather: str = Form(None),
+    lighting: str = Form(None), color_tendency: str = Form(None),
+    negative_prompt: str = Form(None)):
+    """上传本地图片作为资产锚点素材，直接成为该资产的选定候选图。"""
+    db = get_db()
+    try:
+        if not db.execute("SELECT id FROM projects WHERE id=? AND deleted_at IS NULL", (project_id,)).fetchone():
+            raise HTTPException(404, "project not found")
+        sub = "assets/characters" if asset_type == "character" else "assets/scenes"
+        storage.ensure_project_dirs(project_id)
+        ext = _os.path.splitext(file.filename or "")[1] or ".jpg"
+        if ext.lower() not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+            ext = ".jpg"
+        fname = f"{uuid.uuid4()}{ext}"
+        data = await file.read()
+        abspath = storage.save_bytes(project_id, sub, fname, data)
+        rel = storage.get_rel_path(project_id, abspath)
+        aid = str(uuid.uuid4()); cid = str(uuid.uuid4()); ts = now()
+        db.execute(
+            "INSERT INTO assets (id,project_id,asset_type,name,description,appearance_anchor,costume_anchor,temperament_anchor,time,weather,lighting,color_tendency,negative_prompt,status,selected_candidate_id,preview_candidate_id,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (aid, project_id, asset_type, name, description, appearance_anchor, costume_anchor, temperament_anchor, time, weather, lighting, color_tendency, negative_prompt, 'draft', None, None, ts, ts))
+        db.execute(
+            "INSERT INTO asset_candidates (id,asset_id,generator,prompt,negative_prompt,image_path,seed,status,created_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?)",
+            (cid, aid, 'user_upload', f"{name} · 用户上传素材", negative_prompt, rel, None, 'selected', ts))
+        db.execute("UPDATE assets SET selected_candidate_id=?, updated_at=? WHERE id=?", (cid, ts, aid))
+        db.commit()
+        return {"success": True, "data": {"asset_id": aid, "candidate_id": cid, "image_path": rel, "status": "draft"}}
+    finally:
+        db.close()
