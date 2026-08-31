@@ -2,9 +2,17 @@
 {% block title %}分镜编辑 - novel2drama{% endblock %}
 {% block page %}storyboard{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">02 / STORYBOARD</p><h1>分镜编辑</h1><p class="muted">按 15 秒段组织剧情、节拍与生成提示。</p></div><div class="button-row"><button class="btn secondary" data-action="generate-storyboard">AI 生成分镜</button><button class="btn secondary" data-action="show-patches">待应用 patch</button><button class="btn secondary" data-action="refresh-storyboard">刷新</button></div></div>
+<div class="page-heading"><div><p class="eyebrow">02 / STORYBOARD</p><h1>分镜编辑</h1><p class="muted">按 15 秒段组织剧情、节拍与生成提示。左侧对照原文，中间排布段落，右侧编辑段与节拍。</p></div><div class="button-row"><button class="btn secondary" data-action="generate-storyboard">AI 生成分镜</button><button class="btn secondary" data-action="show-patches">待应用 patch</button><button class="btn secondary" data-action="refresh-storyboard">刷新</button></div></div>
 <div id="patch-list" class="panel hidden"></div>
 <div class="storyboard-layout">
+  <aside class="source-ref">
+    <div class="sidebar-title">原文参考</div>
+    <div id="source-ref-viewer" class="source-ref-viewer collapsed"><div class="loading">加载中...</div></div>
+    <div class="source-ref-foot">
+      <button class="btn secondary btn-sm" data-action="toggle-source-ref">展开/收起</button>
+      <span class="muted" id="source-ref-meta"></span>
+    </div>
+  </aside>
   <aside class="segment-sidebar">
     <div class="sidebar-title">段落列表</div>
     <div id="segment-menu" class="segment-menu"><div class="loading">加载中...</div></div>
@@ -18,7 +26,7 @@
     </form>
   </aside>
   <main class="segment-main">
-    <div id="segment-detail" class="segment-detail"><div class="empty-state">请在左侧选择一段</div></div>
+    <div id="segment-detail" class="segment-detail"><div class="empty-state">请在中间列选择一段</div></div>
   </main>
 </div>
 {% endblock %}

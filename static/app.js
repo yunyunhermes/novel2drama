@@ -101,6 +101,7 @@ async function loadH3(segmentId, container){
 async function loadSegmentMenu(){
   const el = $('#segment-menu');
   if(!el) return;
+  await loadSourceRef();
   try{
     const rows = await api(`/projects/${projectId}/segments`);
     _segmentsCache = rows;
@@ -110,6 +111,23 @@ async function loadSegmentMenu(){
     // 默认选中第一段
     if(!_currentSegmentId && rows.length) selectSegment(rows[0].id);
   }catch(e){el.innerHTML = empty(e.message)}
+}
+
+// 左侧原文参考面板：加载当前激活版本全文
+async function loadSourceRef(){
+  const viewer = $('#source-ref-viewer');
+  if(!viewer) return;
+  try{
+    const versions = await api(`/projects/${projectId}/novel-versions`);
+    const active = versions.find(v=>v.is_active) || versions[0];
+    if(!active){
+      viewer.innerHTML = '尚无原文版本，请先到「小说版本」导入原稿。';
+      return;
+    }
+    const v = await api(`/novel-versions/${active.id}`);
+    $('#source-ref-meta').textContent = `V${v.version_no} · ${(v.source_text||'').length} 字`;
+    viewer.textContent = v.source_text || '(空)';
+  }catch(e){viewer.innerHTML = empty(e.message)}
 }
 
 // 右侧详情
@@ -181,6 +199,7 @@ document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;try{
     // 小说编辑页新交互
     if(b.dataset.action==='toggle-source'){const v=$('#source-viewer');if(v)v.classList.toggle('collapsed');return}
+    if(b.dataset.action==='toggle-source-ref'){const v=$('#source-ref-viewer');if(v)v.classList.toggle('collapsed');return}
     if(b.dataset.action==='refresh-chapters'){if(_activeVersionId)return loadChapters(_activeVersionId);return}
     if(b.dataset.action==='parse-chapters'){
       if(!_activeVersionId){toast('请先选择版本',true);return}

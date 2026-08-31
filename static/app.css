@@ -2,9 +2,15 @@
 
 
 /* ============ 分镜编辑左侧菜单布局 ============ */
-.storyboard-layout{display:grid;grid-template-columns:280px 1fr;gap:24px;align-items:start}
+.storyboard-layout{display:grid;grid-template-columns:300px 280px 1fr;gap:20px;align-items:start}
+.source-ref{background:var(--panel);border:1px solid var(--line);padding:16px;position:sticky;top:20px;max-height:calc(100vh - 100px);overflow-y:auto}
+.source-ref .sidebar-title{margin-bottom:12px}
+.source-ref-viewer{background:#0d1217;border:1px solid var(--line);padding:12px;font-size:12px;line-height:1.8;white-space:pre-wrap;word-break:break-word;font-family:"Microsoft YaHei",serif;color:#cfd8e0;max-height:600px;overflow-y:auto}
+.source-ref-viewer.collapsed{max-height:220px;overflow:hidden;position:relative}
+.source-ref-viewer.collapsed:after{content:"";position:absolute;left:0;right:0;bottom:0;height:60px;background:linear-gradient(transparent,#0d1217)}
+.source-ref-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:11px}
+.sidebar-title{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
 .segment-sidebar{background:var(--panel);border:1px solid var(--line);padding:16px;position:sticky;top:20px;max-height:calc(100vh - 100px);overflow-y:auto}
-.sidebar-title{font-size:14px;font-weight:700;margin-bottom:12px;color:var(--muted)}
 .segment-menu{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
 .segment-menu-item{padding:10px 12px;border:1px solid var(--line);cursor:pointer;display:flex;flex-direction:column;gap:4px}
 .segment-menu-item:hover{border-color:var(--accent)}
@@ -51,6 +57,7 @@
 /* 响应式 */
 @media(max-width:900px){
   .storyboard-layout{grid-template-columns:1fr}
+  .source-ref{position:static;max-height:none}
   .segment-sidebar{position:static;max-height:none}
 }
 
