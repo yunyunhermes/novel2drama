@@ -2,5 +2,39 @@
 {% block title %}项目详情 - novel2drama{% endblock %}
 {% block page %}project-detail{% endblock %}
 {% block content %}
-<div id="project-info" class="loading">正在加载项目...</div><section class="panel progress-panel"><div class="panel-title"><div><p class="eyebrow">WORKFLOW</p><h2>制作进度</h2></div><span id="project-status" class="badge">草稿</span></div><div id="stage-progress" class="stage-track"></div></section><section class="module-grid" id="module-links"></section><section class="panel"><div class="panel-title"><h2>任务动态</h2><button class="btn secondary btn-sm" data-action="refresh-detail">刷新</button></div><div id="job-list" class="job-list"><div class="loading">正在加载任务...</div></div></section>
+<div id="project-info" class="loading">正在加载项目...</div>
+
+<!-- 项目概览 -->
+<section class="panel overview-panel">
+  <div class="panel-title">
+    <div><p class="eyebrow">OVERVIEW</p><h2>项目概览</h2></div>
+    <button class="btn secondary btn-sm" data-action="refresh-detail">刷新</button>
+  </div>
+  <div id="project-overview" class="overview-grid">
+    <div class="loading">正在加载概览...</div>
+  </div>
+</section>
+
+<!-- 制作进度 -->
+<section class="panel progress-panel">
+  <div class="panel-title">
+    <div><p class="eyebrow">WORKFLOW</p><h2>制作进度</h2></div>
+    <span id="project-status" class="badge">草稿</span>
+  </div>
+  <div id="stage-progress" class="stage-track"></div>
+</section>
+
+<!-- 模块入口 -->
+<section class="module-grid" id="module-links"></section>
+
+<!-- 任务动态 -->
+<section class="panel">
+  <div class="panel-title">
+    <h2>任务动态</h2>
+    <button class="btn secondary btn-sm" data-action="refresh-jobs">刷新</button>
+  </div>
+  <div id="job-list" class="job-list">
+    <div class="loading">正在加载任务...</div>
+  </div>
+</section>
 {% endblock %}
