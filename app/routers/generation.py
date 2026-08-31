@@ -109,6 +109,23 @@ def select_keyframe(keyframe_id: str):
     return {"success": True, "data": {"selected": True}}
 
 
+@router.get("/projects/{project_id}/review/h3")
+def h3_review_list(project_id: str, episode_id: Optional[str] = None):
+    """H3 15s 段复核聚合：当前集所有分段 + 各自 H3 视频变体（避免前端 N+1）。"""
+    db = get_db()
+    segs = db.execute(
+        "SELECT * FROM segments WHERE project_id=? AND (? IS NULL OR episode_id=?) ORDER BY sort_order",
+        (project_id, episode_id, episode_id)).fetchall()
+    out = []
+    for s in segs:
+        s = dict(s)
+        s["h3_generations"] = [dict(r) for r in db.execute(
+            "SELECT * FROM h3_generations WHERE segment_id=? ORDER BY created_at DESC", (s["id"],)).fetchall()]
+        out.append(s)
+    db.close()
+    return {"success": True, "data": out}
+
+
 @router.post("/segments/{segment_id}/h3-generations")
 def gen_h3(segment_id: str, payload: dict = Body(default={})):
     """触发 H3 15s 段生成, payload.quality 支持 preview/high"""

@@ -61,6 +61,10 @@ async def export_page(request: Request, project_id: str):
 async def keyframe_review_page(request: Request, project_id: str):
     return templates.TemplateResponse(request, "keyframe_review.html", {"project_id": project_id})
 
+@app.get("/projects/{project_id}/h3-review", response_class=HTMLResponse)
+async def segment_review_page(request: Request, project_id: str):
+    return templates.TemplateResponse(request, "segment_review.html", {"project_id": project_id})
+
 
 # ============ 文件服务 ============
 from fastapi.responses import FileResponse

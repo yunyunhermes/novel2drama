@@ -404,6 +404,41 @@ document.addEventListener('click',async e=>{
   if(b.dataset.reviewSelectKeyframe){try{await api(`/keyframes/${b.dataset.reviewSelectKeyframe}/select`,{method:'POST'});toast('段首图已选定，该段进入 H3 阶段');await loadKeyframeReview()}catch(err){toast(err.message,true)}return}
 });
 
+// ===== 15s 段复核页 =====
+function h3Candidates(s){
+  if(!s.h3_generations || !s.h3_generations.length) return empty('暂无视频，点「生成」由 H3 出片，稍后刷新查看。');
+  return `<div class="video-grid">${s.h3_generations.map(g=>`<div><video controls preload="metadata" src="/files/${projectId}/${esc(g.video_path||'')}" ${g.thumbnail_path?`poster="/files/${projectId}/${esc(g.thumbnail_path)}"`:''}></video><div class="card-meta">${status(g.status)}${g.status==='selected'?'<b> · 已选</b>':`<button class="btn secondary btn-sm" data-review-select-h3="${g.id}">选定</button>`}</div></div>`).join('')}</div>`;
+}
+async function loadH3Review(){
+  const el=$('#h3-review-list'); if(!el) return;
+  el.innerHTML='<div class="loading">加载中...</div>';
+  try{
+    const segs=await api(`/projects/${projectId}/review/h3${epQuery()}`);
+    if(!segs.length){el.innerHTML=empty('暂无分段，请先到「分镜编辑」创建或生成分段。');return}
+    el.innerHTML=segs.map(s=>`
+      <section class="review-section">
+        <div class="segment-detail-header">
+          <div><span class="seg-no">第 ${s.sort_order} 段</span><h3 style="margin:4px 0">${esc(s.summary||'(无摘要)')}</h3></div>
+          <div class="segment-actions">${status(s.status)}
+            <button class="btn secondary btn-sm" data-review-generate-h3="${s.id}">生成</button>
+            <button class="btn secondary btn-sm" data-review-regenerate-h3="${s.id}">重抽</button>
+          </div>
+        </div>
+        ${!s.selected_keyframe_id?`<p class="muted" style="font-size:12px;margin:0 0 12px">⚠ 该段尚未选定段首图，请先到「段首图复核」选定后再生成。</p>`:''}
+        ${s.h3_prompt?`<p class="muted" style="font-size:12px;margin:0 0 12px">prompt：${esc(s.h3_prompt)}</p>`:''}
+        ${h3Candidates(s)}
+      </section>`).join('');
+  }catch(e){el.innerHTML=empty(e.message)}
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.action==='refresh-segment-review')return loadH3Review();
+  if(b.dataset.reviewGenerateH3)return submit(`/segments/${b.dataset.reviewGenerateH3}/h3-generations`,{},'H3生成任务已排队',loadH3Review);
+  if(b.dataset.reviewRegenerateH3)return submit(`/segments/${b.dataset.reviewRegenerateH3}/h3-generations`,{},'重抽任务已排队',loadH3Review);
+  if(b.dataset.reviewSelectH3){try{await api(`/h3-generations/${b.dataset.reviewSelectH3}/select`,{method:'POST'});toast('H3视频已选定，该段确认通过');await loadH3Review()}catch(err){toast(err.message,true)}return}
+});
+if(page==='segment-review'){(async()=>{await loadSidebar();loadH3Review()})()}
+
 // ===== 资产：直接上传本地素材 + 列表渲染 =====
 async function uploadForm(url, formData){
   const res=await fetch(API+url,{method:'POST',body:formData});
