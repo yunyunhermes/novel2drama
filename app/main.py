@@ -57,6 +57,10 @@ async def asset_review(request: Request, project_id: str):
 async def export_page(request: Request, project_id: str):
     return templates.TemplateResponse(request, "export.html", {"project_id": project_id})
 
+@app.get("/projects/{project_id}/keyframes-review", response_class=HTMLResponse)
+async def keyframe_review_page(request: Request, project_id: str):
+    return templates.TemplateResponse(request, "keyframe_review.html", {"project_id": project_id})
+
 
 # ============ 文件服务 ============
 from fastapi.responses import FileResponse

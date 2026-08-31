@@ -74,6 +74,23 @@ def list_keyframes(segment_id: str):
     return {"success": True, "data": [dict(r) for r in rows]}
 
 
+@router.get("/projects/{project_id}/review/keyframes")
+def keyframe_review_list(project_id: str, episode_id: Optional[str] = None):
+    """段首图复核聚合：当前集所有分段 + 各自候选段首图（避免前端 N+1）。"""
+    db = get_db()
+    segs = db.execute(
+        "SELECT * FROM segments WHERE project_id=? AND (? IS NULL OR episode_id=?) ORDER BY sort_order",
+        (project_id, episode_id, episode_id)).fetchall()
+    out = []
+    for s in segs:
+        s = dict(s)
+        s["keyframes"] = [dict(r) for r in db.execute(
+            "SELECT * FROM keyframes WHERE segment_id=? ORDER BY created_at DESC", (s["id"],)).fetchall()]
+        out.append(s)
+    db.close()
+    return {"success": True, "data": out}
+
+
 @router.post("/keyframes/{keyframe_id}/select")
 def select_keyframe(keyframe_id: str):
     db = get_db()

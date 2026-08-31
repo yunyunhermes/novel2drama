@@ -41,7 +41,7 @@ const toast=(message,error=false)=>{const el=$('#toast');if(!el)return;el.textCo
 async function api(path,options={}){const res=await fetch(API+path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let body={};try{body=await res.json()}catch{}if(!res.ok||body.success===false)throw new Error(body.error?.message||`请求失败（${res.status}）`);return body.data}
 function formData(form){return Object.fromEntries(new FormData(form).entries())}
 function empty(text){return `<div class="empty">${esc(text)}</div>`}
-function status(v){return `<span class="status ${esc(v)}">${esc({draft:'草稿',queued:'排队中',running:'生成中',confirmed:'已确认',selected:'已选定',completed:'已完成',failed:'失败',keyframe_generating:'段首图生成中',h3_generating:'H3生成中'}[v]||v||'未知')}</span>`}
+function status(v){return `<span class="status ${esc(v)}">${esc({draft:'草稿',queued:'排队中',running:'生成中',confirmed:'已确认',selected:'已选定',completed:'已完成',failed:'失败',keyframe_generating:'段首图生成中',h3_generating:'H3生成中',keyframe_review:'段首图待复核',keyframe_confirmed:'段首图已确认',h3_review:'H3待复核'}[v]||v||'未知')}</span>`}
 // ===== 常驻侧栏：项目名 + 当前集 + 菜单高亮 + episode_id 注入 =====
 function appendEpisodeQuery(){
   if(!currentEpisodeId) return;
@@ -369,6 +369,40 @@ if(page==='novel'){(async()=>{await loadSidebar();loadNovels()})()}
 if(page==='storyboard'){(async()=>{await loadSidebar();loadSegmentMenu()})()}
 if(page==='assets'){loadSidebar().then(loadAssets)}
 if(page==='export'){(async()=>{await loadSidebar();loadExports()})()}
+if(page==='keyframe-review'){(async()=>{await loadSidebar();loadKeyframeReview()})()}
+
+// ===== 段首图复核页 =====
+function keyframeCandidates(s){
+  if(!s.keyframes || !s.keyframes.length) return empty('暂无候选，点「生成」由 Z-Image 出图，稍后刷新查看。');
+  return `<div class="keyframe-grid">${s.keyframes.map(k=>`<div class="candidate keyframe ${k.status==='selected'?'selected':''}"><img src="/files/${projectId}/${esc(k.image_path)}" alt="段首图候选"><div class="card-meta">${status(k.status)}${k.status==='selected'?'<b> · 已选</b>':`<button class="btn secondary btn-sm" data-review-select-keyframe="${k.id}">选定</button>`}</div></div>`).join('')}</div>`;
+}
+async function loadKeyframeReview(){
+  const el=$('#keyframe-review-list'); if(!el) return;
+  el.innerHTML='<div class="loading">加载中...</div>';
+  try{
+    const segs=await api(`/projects/${projectId}/review/keyframes${epQuery()}`);
+    if(!segs.length){el.innerHTML=empty('暂无分段，请先到「分镜编辑」创建或生成分段。');return}
+    el.innerHTML=segs.map(s=>`
+      <section class="review-section">
+        <div class="segment-detail-header">
+          <div><span class="seg-no">第 ${s.sort_order} 段</span><h3 style="margin:4px 0">${esc(s.summary||'(无摘要)')}</h3></div>
+          <div class="segment-actions">${status(s.status)}
+            <button class="btn secondary btn-sm" data-review-generate-keyframes="${s.id}">生成</button>
+            <button class="btn secondary btn-sm" data-review-regenerate-keyframes="${s.id}">重抽</button>
+          </div>
+        </div>
+        ${s.keyframe_prompt?`<p class="muted" style="font-size:12px;margin:0 0 12px">prompt：${esc(s.keyframe_prompt)}</p>`:''}
+        ${keyframeCandidates(s)}
+      </section>`).join('');
+  }catch(e){el.innerHTML=empty(e.message)}
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.action==='refresh-keyframe-review')return loadKeyframeReview();
+  if(b.dataset.reviewGenerateKeyframes)return submit(`/segments/${b.dataset.reviewGenerateKeyframes}/keyframes/generate`,{},'段首图生成任务已排队',loadKeyframeReview);
+  if(b.dataset.reviewRegenerateKeyframes)return submit(`/segments/${b.dataset.reviewRegenerateKeyframes}/keyframes/generate`,{},'重抽任务已排队',loadKeyframeReview);
+  if(b.dataset.reviewSelectKeyframe){try{await api(`/keyframes/${b.dataset.reviewSelectKeyframe}/select`,{method:'POST'});toast('段首图已选定，该段进入 H3 阶段');await loadKeyframeReview()}catch(err){toast(err.message,true)}return}
+});
 
 // ===== 资产：直接上传本地素材 + 列表渲染 =====
 async function uploadForm(url, formData){
