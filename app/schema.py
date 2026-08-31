@@ -27,6 +27,14 @@ def migrate_episodes(conn: sqlite3.Connection) -> None:
     """幂等迁移：创建 episodes 表 + 给分集表加 episode_id + 旧数据回填默认第1集。"""
     c = conn.cursor()
 
+    # 启动时兜底切 WAL（幂等）：写不阻塞读，支撑 worker 后台写 + 前端读并发。
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.Error:
+        pass
+    conn.execute("PRAGMA busy_timeout=5000")
+
+
     # 1) episodes 表
     c.execute(
         """CREATE TABLE IF NOT EXISTS episodes (
