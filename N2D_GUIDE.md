@@ -3,6 +3,17 @@
 本仓库是 novel2drama 后端 + 前端本体（FastAPI + Jinja + SQLite）。你的任务是通过
 `n2d` 命令行工具读写后端数据，帮助用户修改剧情 / 分镜 / 资产等。
 
+## 开始前：先看现状（省 token，勿逐个 find/cat 探索）
+
+**第一件事是跑 `n2d context <project_id>`**，一次拿到项目 / 分集 / 当前集 / 小说版本 /
+段落 / 资产现状，直接定位要做的事。不要用 `find`/`cat` 逐个摸索文件——那会烧大量 token。
+加 `-j` 输出原始 JSON；`--episode <id>` 指定当前集、`--page <页面名>` 说明所处页面。
+
+```bash
+n2d context <project_id>          # 聚合现状（人类可读）
+n2d context <project_id> -j       # 原始 JSON
+```
+
 ## 工作方式约定
 
 1. **一切数据操作走 `n2d` CLI**，不要直接改 SQLite 文件或后端源码里的数据。

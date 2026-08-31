@@ -62,6 +62,10 @@ def is_write_cmd(command):
         return False
     verb = tokens[1] if len(tokens) > 1 else ""
     sub = tokens[2] if len(tokens) > 2 and not tokens[2].startswith("-") else ""
+    # 读命令（含 context 聚合现状）一律放行，不弹行为卡片（context/project(s) 非写动词，
+    # 下面 WRITE_SUBVERBS 判定已天然放行，这里显式备注以免误判）
+    if verb in ("context",):
+        return False
     if verb in WRITE_SUBVERBS or sub in WRITE_SUBVERBS:
         return True
     # chapter edit/include 等带 -- 的（verb=chapter, sub 可能带 flag 前）细判

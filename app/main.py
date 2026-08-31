@@ -26,11 +26,12 @@ app.include_router(agent.router, prefix="/api/v1")
 @app.on_event("startup")
 def _migrate():
     """启动时幂等迁移：补 episodes 表 / episode_id 列 / 旧数据回填。"""
-    from app.schema import migrate_episodes
+    from app.schema import migrate_episodes, migrate_agent
     from app.db import get_db
     db = get_db()
     try:
         migrate_episodes(db)
+        migrate_agent(db)
     finally:
         db.close()
 

@@ -83,3 +83,42 @@ def migrate_episodes(conn: sqlite3.Connection) -> None:
             )
 
     conn.commit()
+
+
+def migrate_agent(conn: sqlite3.Connection) -> None:
+    """幂等迁移：AI 助手会话/消息持久化表 + 项目数据变更版本号表（多人协同实时刷新地基）。
+
+    - agent_sessions：UI 会话头（按项目共享，多人在同一项目看到同一组会话/历史）
+    - agent_messages：消息逐条（content_json 存序列化内容，禁止 localStorage）
+    - project_version：agent 写操作完成后 bump，前端轮询/SSE 感知变更
+    """
+    c = conn.cursor()
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS agent_sessions (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            title TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        )"""
+    )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS agent_messages (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            role TEXT NOT NULL,          -- user/assistant/tool/permission
+            type TEXT,                    -- 子类型（text/tool/permission）
+            content_json TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )"""
+    )
+    c.execute(
+        """CREATE TABLE IF NOT EXISTS project_version (
+            project_id TEXT PRIMARY KEY,
+            version INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+        )"""
+    )
+    c.execute("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_agent_sessions_project ON agent_sessions(project_id)")
+    conn.commit()

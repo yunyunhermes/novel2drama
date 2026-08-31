@@ -23,14 +23,18 @@
 .ai-msg.user .ai-bubble{background:var(--accent);color:#161616}
 .ai-msg.assistant .ai-bubble{background:var(--panel2);border:1px solid var(--line);color:var(--text)}
 .ai-msg .ai-meta{font-size:10.5px;color:var(--muted);padding:0 4px}
-/* 工具调用状态行 */
+/* 工具调用状态行：长条静止，仅 .ic.spinner 一处旋转 */
 .ai-tool{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
-.ai-tool .sp{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;flex-shrink:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 .ai-tool .ok{color:var(--green)}
 .ai-tool .err{color:var(--red)}
 .ai-tool .ic{flex-shrink:0;font-size:12px}
 .ai-tool .ic.spinner{width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+/* 会话切换栏 */
+.ai-sessbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--line);flex-shrink:0;background:var(--panel)}
+.ai-sessbar select{flex:1;min-width:0;margin:0;padding:6px 9px;background:#11161b;border:1px solid var(--line);color:var(--text);font-size:12px;border-radius:6px}
+.ai-sessbar select:focus{outline:none;border-color:var(--accent)}
+.ai-sessbar .btn{min-height:28px;padding:4px 9px;font-size:12px;flex-shrink:0}
 /* 行为卡片 */
 .ai-perm{border:1px solid var(--accent);border-radius:12px;padding:13px 14px;background:rgba(230,184,106,.06);display:flex;flex-direction:column;gap:10px}
 .ai-perm .ph{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;color:var(--accent)}

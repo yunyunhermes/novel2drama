@@ -18,11 +18,14 @@ import os
 import uuid
 
 from app.services.n2d_cards import is_write_cmd, render_action
+from app.services import events
+from app.services.agent_store import bump_version
 
 OPENCODE_CMD = os.getenv("N2D_OPENCODE_CMD", "opencode")
 ACP_CWD = os.getenv("N2D_ACP_CWD", "/data/projects/novel2drama")
 AUTO_OPTION = "once"          # 读操作/普通工具 自动批准（仅本次）
 CLIENT_INFO = {"name": "novel2drama", "title": "Novel2Drama Workbench", "version": "0.1"}
+MAX_ACP_SESSIONS = 5          # 限制并发 ACP session 数，防 opencode 进程/上下文堆积
 
 
 class AgentSession:
@@ -31,6 +34,8 @@ class AgentSession:
         self.queue = asyncio.Queue()          # 出站 SSE 事件
         self.pending_perms = {}               # request_id -> (future, command)
         self.prompt_lock = asyncio.Lock()
+        self.project_id = None                # 归属项目（写操作完成后 bump version 用）
+        self.ui_session_id = None             # UI 会话 key（1:1 映射 ACP sid）
 
 
 class ACPManager:
@@ -41,7 +46,7 @@ class ACPManager:
         self.reader_task = None
         self.err_task = None
         self.sessions = {}                     # sid -> AgentSession
-        self.by_project = {}                   # project_id -> sid
+        self.by_session = {}                   # ui_session_id -> sid（1:1 UI 会话 -> ACP session）
         self.pending_requests = {}             # msg_id -> future
         self.msg_id = 0
         self.init_done = False
@@ -184,20 +189,40 @@ class ACPManager:
                 fut = sess.pending_perms.pop(request_id)[0]
                 if not fut.done():
                     fut.set_result(option_id)
+                # 写操作确认执行：bump 项目版本号 + 广播 data_changed，让所有打开该项目的
+                # 前端（其他浏览器/窗口）自动刷新看到最新数据。
+                if option_id in ("once", "always") and sess.project_id:
+                    try:
+                        v = bump_version(sess.project_id)
+                        events.broadcast(sess.project_id, {"type": "data_changed", "version": v})
+                    except Exception:
+                        pass
                 return True
         return False
 
     # ---- 会话 ----
-    async def get_session(self, project_id):
+    async def get_session(self, project_id, ui_session_id=None):
+        """取得（或新建）一个 ACP session。
+
+        UI 会话 (ui_session_id) 与 ACP session 1:1：同一 ui_session_id 复用同一 ACP
+        上下文；不同 ui_session_id（多人在不同浏览器）各自独立 agent 记忆，但项目
+        数据仍共享（同一 SQLite 库）。限制并发 ACP session 数防 opencode 堆积。
+        """
         await self.ensure()
-        if project_id in self.by_project:
-            return self.by_project[project_id]
+        if ui_session_id and ui_session_id in self.by_session:
+            return self.by_session[ui_session_id]
+        if len(self.sessions) >= MAX_ACP_SESSIONS:
+            raise RuntimeError("并发会话已达上限，请稍后等待或复用已有会话")
         res = await self._request("session/new", {"cwd": ACP_CWD, "mcpServers": []})
         sid = res.get("sessionId")
         if not sid:
             raise RuntimeError("opencode 未返回 sessionId")
-        self.sessions[sid] = AgentSession(sid)
-        self.by_project[project_id] = sid
+        sess = AgentSession(sid)
+        sess.project_id = project_id
+        sess.ui_session_id = ui_session_id
+        self.sessions[sid] = sess
+        if ui_session_id:
+            self.by_session[ui_session_id] = sid
         return sid
 
     async def prompt(self, session_id, text):
@@ -227,7 +252,8 @@ class ACPManager:
     async def status(self):
         alive = self.proc is not None and self.proc.returncode is None
         return {"alive": alive, "sessions": list(self.sessions.keys()),
-                "by_project": self.by_project}
+                "by_session": self.by_session, "session_count": len(self.sessions),
+                "max_sessions": MAX_ACP_SESSIONS}
 
 
 def _cmd_of(upd):

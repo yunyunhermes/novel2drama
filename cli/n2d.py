@@ -460,6 +460,36 @@ def cmd_list_exports(args, c):
             print(f"{x['id'][:8]}  {esc(x.get('title'))}  {esc(x.get('status'))}  {esc(x.get('created_at',''))}")
 
 
+def cmd_context(args, c):
+    """n2d context <project_id> — 聚合获取项目/分集/当前集/版本/段落/资产现状，供 agent 开场。"""
+    resp = api(c.host, c.auth,
+               f"/api/v1/projects/{args.project_id}/context?episode_id={args.episode or ''}&page={args.page or ''}",
+               timeout=c.timeout)
+    data = out(resp, c.json)   # json_mode 时已打印原始 JSON
+    if data is None:
+        return
+    if c.json:
+        return
+    p = data.get("project", {})
+    print(f"项目: {esc(p.get('name'))} [{esc(p.get('status'))}] 目标时长 {esc(p.get('target_duration_seconds'))}s")
+    if p.get("description"):
+        print(f"  描述: {esc(p['description'])[:120]}")
+    if p.get("style_prompt"):
+        print(f"  风格: {esc(p['style_prompt'])[:200]}")
+    print("分集:")
+    for e in data.get("episodes", []):
+        mark = "*" if e.get("id") == data.get("current_episode") else " "
+        print(f"  {mark} EP{e.get('episode_no')} {esc(e.get('title'))} ({e.get('id','')[:8]})")
+    nv = data.get("novel_versions", {})
+    print(f"小说版本: {nv.get('count')} 个，当前激活 '{esc(nv.get('active_title'))}' (文本 {nv.get('active_text_length')} 字)")
+    seg = data.get("segments", {})
+    print(f"段落: {seg.get('count')} 个")
+    for s in seg.get("list", []):
+        print(f"  [{s.get('sort_order')}] {esc(s.get('status'))} {esc(s.get('summary'))[:50]}")
+    a = data.get("assets", {})
+    print(f"资产: 角色 {a.get('characters')}，场景 {a.get('scenes')}")
+
+
 # ---------- argparse 构建 ----------
 def build_parser():
     # 全局选项通过环境变量注入，不放在命令行, 保持简洁。这里加 --json
@@ -480,6 +510,12 @@ def build_parser():
     sp_new.set_defaults(func=cmd_create_project)
     sp_rm = sp2.add_parser("rm", help="删除项目")
     sp_rm.add_argument("project_id"); sp_rm.set_defaults(func=cmd_delete_project)
+
+    sp = sub.add_parser("context", help="聚合获取项目现状(省 token，agent 开场)")
+    sp.add_argument("project_id")
+    sp.add_argument("--episode", help="指定当前集 id")
+    sp.add_argument("--page", help="当前前端页面名")
+    sp.set_defaults(func=cmd_context)
 
     sp = sub.add_parser("episodes", help="列出分集")
     sp.add_argument("project_id"); sp.set_defaults(func=cmd_list_episodes)
