@@ -102,11 +102,28 @@ def select_keyframe(keyframe_id: str):
     kf = dict(kf)
     db.execute("UPDATE keyframes SET status='generated' WHERE segment_id=?", (kf["segment_id"],))
     db.execute("UPDATE keyframes SET status='selected' WHERE id=?", (keyframe_id,))
-    db.execute("UPDATE segments SET selected_keyframe_id=?, status='keyframe_confirmed', updated_at=? WHERE id=?",
+    db.execute("UPDATE segments SET selected_keyframe_id=?, updated_at=? WHERE id=?",
                (keyframe_id, ts, kf["segment_id"]))
     db.commit()
     db.close()
     return {"success": True, "data": {"selected": True}}
+
+
+@router.post("/keyframes/{keyframe_id}/confirm")
+def confirm_keyframe(keyframe_id: str):
+    """确认段首图：该段进入 keyframe_confirmed（通过人工复核，可进入 H3 阶段）。"""
+    db = get_db()
+    ts = now()
+    kf = db.execute("SELECT * FROM keyframes WHERE id=?", (keyframe_id,)).fetchone()
+    if not kf:
+        db.close()
+        return {"success": False, "error": {"code": "NOT_FOUND", "message": "keyframe not found"}}
+    kf = dict(kf)
+    db.execute("UPDATE segments SET status='keyframe_confirmed', selected_keyframe_id=?, updated_at=? WHERE id=?",
+               (keyframe_id, ts, kf["segment_id"]))
+    db.commit()
+    db.close()
+    return {"success": True, "data": {"confirmed": True}}
 
 
 @router.get("/projects/{project_id}/review/h3")
