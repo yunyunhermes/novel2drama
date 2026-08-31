@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'novel2drama.db')
+DB_PATH = os.getenv("N2D_DB_PATH", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'novel2drama.db'))
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 def init():

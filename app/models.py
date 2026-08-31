@@ -11,12 +11,14 @@ class ProjectCreate(BaseModel):
 class NovelVersionCreate(BaseModel):
     title: str
     source_text: str
+    episode_id: Optional[str] = None
 
 class SegmentCreate(BaseModel):
     sort_order: int
     summary: Optional[str] = None
     start_transition: Optional[str] = None
     end_transition: Optional[str] = None
+    episode_id: Optional[str] = None
 
 class ShotBeatCreate(BaseModel):
     sort_order: int
@@ -50,12 +52,15 @@ class JobCreate(BaseModel):
     target_type: str
     target_id: str
     payload_json: str
+    episode_id: Optional[str] = None
 
 class ReviewCreate(BaseModel):
     target_type: str
     target_id: str
     action: str
     comment: Optional[str] = None
+    project_id: Optional[str] = None
+    episode_id: Optional[str] = None
 
 class ExportCreate(BaseModel):
     title: str

@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+from typing import Optional
 from app.db import get_db
 from app.models import JobCreate
 import uuid
@@ -10,9 +11,12 @@ def now():
     return datetime.utcnow().isoformat()
 
 @router.get("/projects/{project_id}/jobs")
-def list_jobs(project_id: str):
+def list_jobs(project_id: str, episode_id: Optional[str] = None):
     db = get_db()
-    rows = db.execute("SELECT * FROM jobs WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
+    rows = db.execute(
+        "SELECT * FROM jobs WHERE project_id=? AND (? IS NULL OR episode_id=?) ORDER BY created_at DESC",
+        (project_id, episode_id, episode_id),
+    ).fetchall()
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
 
@@ -21,8 +25,8 @@ def create_job(project_id: str, j: JobCreate):
     db = get_db()
     jid = str(uuid.uuid4())
     ts = now()
-    db.execute("INSERT INTO jobs (id,project_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (jid, project_id, j.job_type, j.target_type, j.target_id, j.payload_json, 'queued', ts))
+    db.execute("INSERT INTO jobs (id,project_id,episode_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+               (jid, project_id, j.episode_id, j.job_type, j.target_type, j.target_id, j.payload_json, 'queued', ts))
     db.commit()
     db.close()
     return {"success": True, "data": {"job_id": jid}}
@@ -53,8 +57,9 @@ def gen_keyframes(segment_id: str, payload: dict = Body(default={})):
         db.close()
         return {"success": False, "error": {"code": "NOT_FOUND", "message": "segment not found"}}
     project_id = dict(seg)["project_id"]
-    db.execute("INSERT INTO jobs (id,project_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (jid, project_id, "z_image_keyframe", "segment", segment_id, _json.dumps(payload), 'queued', ts))
+    episode_id = dict(seg).get("episode_id")
+    db.execute("INSERT INTO jobs (id,project_id,episode_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+               (jid, project_id, episode_id, "z_image_keyframe", "segment", segment_id, _json.dumps(payload), 'queued', ts))
     db.execute("UPDATE segments SET status='keyframe_generating', updated_at=? WHERE id=?", (ts, segment_id))
     db.commit()
     db.close()
@@ -106,8 +111,8 @@ def gen_h3(segment_id: str, payload: dict = Body(default={})):
         return {"success": False, "error": {"code": "NO_KEYFRAME", "message": "请先选定段首图"}}
     jid = str(uuid.uuid4())
     ts = now()
-    db.execute("INSERT INTO jobs (id,project_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (jid, seg["project_id"], "h3_segment", "segment", segment_id, _json.dumps(payload), 'queued', ts))
+    db.execute("INSERT INTO jobs (id,project_id,episode_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+               (jid, seg["project_id"], seg.get("episode_id"), "h3_segment", "segment", segment_id, _json.dumps(payload), 'queued', ts))
     db.execute("UPDATE segments SET status='h3_generating', updated_at=? WHERE id=?", (ts, segment_id))
     db.commit()
     db.close()

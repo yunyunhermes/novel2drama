@@ -172,6 +172,21 @@ def cmd_project_detail(args, c):
         print(f"当前版本: {data.get('current_novel_version_id')}")
 
 
+def cmd_list_episodes(args, c):
+    resp = api(c.host, c.auth, f"/api/v1/projects/{args.project_id}/episodes", timeout=c.timeout)
+    data = out(resp, c.json)
+    if data:
+        for e in data:
+            print(f"{e['id'][:8]}  第{e.get('episode_no')}集  [{esc(e.get('title'))}]  [{esc(e.get('status'))}]  {esc(e.get('updated_at',''))}")
+
+
+def cmd_create_episode(args, c):
+    resp = api(c.host, c.auth, f"/api/v1/projects/{args.project_id}/episodes", "POST", timeout=c.timeout)
+    data = out(resp, c.json)
+    if data:
+        print(f"创建成功 episode_id={data.get('episode_id')}  第{data.get('episode_no')}集")
+
+
 def cmd_list_novels(args, c):
     resp = api(c.host, c.auth, f"/api/v1/projects/{args.project_id}/novel-versions", timeout=c.timeout)
     data = out(resp, c.json)
@@ -465,6 +480,13 @@ def build_parser():
     sp_new.set_defaults(func=cmd_create_project)
     sp_rm = sp2.add_parser("rm", help="删除项目")
     sp_rm.add_argument("project_id"); sp_rm.set_defaults(func=cmd_delete_project)
+
+    sp = sub.add_parser("episodes", help="列出分集")
+    sp.add_argument("project_id"); sp.set_defaults(func=cmd_list_episodes)
+
+    sp = sub.add_parser("episode", help="分集操作")
+    sp2 = sp.add_subparsers(dest="sub")
+    sp_n = sp2.add_parser("new"); sp_n.add_argument("project_id"); sp_n.set_defaults(func=cmd_create_episode)
 
     sp = sub.add_parser("novels", help="小说版本列表")
     sp.add_argument("project_id"); sp.set_defaults(func=cmd_list_novels)

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Body
+from typing import Optional
 from app.db import get_db
 from app.models import SegmentCreate, ShotBeatCreate
 import uuid
@@ -10,9 +11,12 @@ def now():
     return datetime.utcnow().isoformat()
 
 @router.get("/projects/{project_id}/segments")
-def list_segments(project_id: str):
+def list_segments(project_id: str, episode_id: Optional[str] = None):
     db = get_db()
-    rows = db.execute("SELECT * FROM segments WHERE project_id=? ORDER BY sort_order", (project_id,)).fetchall()
+    rows = db.execute(
+        "SELECT * FROM segments WHERE project_id=? AND (? IS NULL OR episode_id=?) ORDER BY sort_order",
+        (project_id, episode_id, episode_id),
+    ).fetchall()
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
 
@@ -21,11 +25,11 @@ def create_segment(project_id: str, s: SegmentCreate):
     db = get_db()
     sid = str(uuid.uuid4())
     ts = now()
-    db.execute("INSERT INTO segments (id,project_id,sort_order,summary,start_transition,end_transition,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
-               (sid, project_id, s.sort_order, s.summary, s.start_transition, s.end_transition, 'draft', ts, ts))
+    db.execute("INSERT INTO segments (id,project_id,episode_id,sort_order,summary,start_transition,end_transition,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+               (sid, project_id, s.episode_id, s.sort_order, s.summary, s.start_transition, s.end_transition, 'draft', ts, ts))
     db.commit()
     db.close()
-    return {"success": True, "data": {"segment_id": sid}}
+    return {"success": True, "data": {"segment_id": sid, "episode_id": s.episode_id}}
 
 @router.patch("/projects/{project_id}/segments/{segment_id}")
 def update_segment(project_id: str, segment_id: str, payload: dict = Body(default={})):
@@ -105,8 +109,9 @@ def gen_storyboard(project_id: str, payload: dict = Body(default={})):
     db = get_db()
     jid = str(_uuid.uuid4())
     ts = _now()
-    db.execute("INSERT INTO jobs (id,project_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (jid, project_id, "llm_storyboard", "project", project_id, _json.dumps(payload), 'queued', ts))
+    episode_id = payload.get("episode_id")
+    db.execute("INSERT INTO jobs (id,project_id,episode_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+               (jid, project_id, episode_id, "llm_storyboard", "project", project_id, _json.dumps(payload), 'queued', ts))
     db.commit()
     db.close()
     return {"success": True, "data": {"job_id": jid, "status": "queued"}}
@@ -174,10 +179,13 @@ def build_h3_prompt_api(segment_id: str):
 
 
 @router.get("/projects/{project_id}/agent-patches")
-def list_agent_patches(project_id: str):
+def list_agent_patches(project_id: str, episode_id: Optional[str] = None):
     """列出项目的 Agent patch (待确认)"""
     db = get_db()
-    rows = db.execute("SELECT * FROM agent_patches WHERE project_id=? ORDER BY created_at DESC", (project_id,)).fetchall()
+    rows = db.execute(
+        "SELECT * FROM agent_patches WHERE project_id=? AND (? IS NULL OR episode_id=?) ORDER BY created_at DESC",
+        (project_id, episode_id, episode_id),
+    ).fetchall()
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
 
@@ -205,13 +213,16 @@ def apply_agent_patch(patch_id: str):
         data = op.get("data", {})
         sid = str(_uuid.uuid4())
         ts = _now()
-        # 获取当前最大 sort_order
-        max_so = db.execute("SELECT MAX(sort_order) FROM segments WHERE project_id=?",
-                            (p["project_id"],)).fetchone()[0] or 0
+        episode_id = p.get("episode_id") or data.get("episode_id")
+        # 获取当前集最大 sort_order
+        max_so = db.execute(
+            "SELECT MAX(sort_order) FROM segments WHERE project_id=? AND (? IS NULL OR episode_id=?)",
+            (p["project_id"], episode_id, episode_id),
+        ).fetchone()[0] or 0
         db.execute(
-            "INSERT INTO segments (id,project_id,sort_order,summary,start_transition,end_transition,status,created_at,updated_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?)",
-            (sid, p["project_id"], max_so+1, data.get("summary",""),
+            "INSERT INTO segments (id,project_id,episode_id,sort_order,summary,start_transition,end_transition,status,created_at,updated_at) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (sid, p["project_id"], episode_id, max_so+1, data.get("summary",""),
              data.get("start_transition",""), data.get("end_transition",""),
              "draft", ts, ts))
         # 节拍

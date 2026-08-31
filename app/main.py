@@ -10,7 +10,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-from app.routers import projects, novels, storyboard, assets, generation, review, export
+from app.routers import projects, novels, storyboard, assets, generation, review, export, episodes
 
 app.include_router(projects.router, prefix="/api/v1")
 app.include_router(novels.router, prefix="/api/v1")
@@ -19,6 +19,19 @@ app.include_router(assets.router, prefix="/api/v1")
 app.include_router(generation.router, prefix="/api/v1")
 app.include_router(review.router, prefix="/api/v1")
 app.include_router(export.router, prefix="/api/v1")
+app.include_router(episodes.router, prefix="/api/v1")
+
+
+@app.on_event("startup")
+def _migrate():
+    """启动时幂等迁移：补 episodes 表 / episode_id 列 / 旧数据回填。"""
+    from app.schema import migrate_episodes
+    from app.db import get_db
+    db = get_db()
+    try:
+        migrate_episodes(db)
+    finally:
+        db.close()
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):

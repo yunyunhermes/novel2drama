@@ -16,14 +16,15 @@ def now():
 # ============ 版本管理 ============
 
 @router.get("/projects/{project_id}/novel-versions")
-def list_novel_versions(project_id: str):
+def list_novel_versions(project_id: str, episode_id: Optional[str] = None):
     db = get_db()
     rows = db.execute(
-        "SELECT id, project_id, title, version_no, is_active, created_at, "
+        "SELECT id, project_id, episode_id, title, version_no, is_active, created_at, "
         "length(source_text) AS text_length, "
         "substr(source_text, 1, 200) AS text_preview "
-        "FROM novel_versions WHERE project_id=? ORDER BY version_no DESC",
-        (project_id,),
+        "FROM novel_versions WHERE project_id=? AND (? IS NULL OR episode_id=?) "
+        "ORDER BY version_no DESC",
+        (project_id, episode_id, episode_id),
     ).fetchall()
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
@@ -45,34 +46,43 @@ def create_novel_version(project_id: str, v: NovelVersionCreate):
     db = get_db()
     vid = str(uuid.uuid4())
     ts = now()
+    # version_no 按集递增
+    where = "project_id=?"
+    params = [project_id]
+    if v.episode_id:
+        where += " AND episode_id=?"
+        params.append(v.episode_id)
     max_ver = db.execute(
-        "SELECT MAX(version_no) FROM novel_versions WHERE project_id=?",
-        (project_id,),
+        f"SELECT MAX(version_no) FROM novel_versions WHERE {where}", params
     ).fetchone()[0] or 0
-    # 如果项目还没有任何 active 版本，把新版本自动设为 active
+    # 如果当前集还没有任何 active 版本，把新版本自动设为 active
     has_active = db.execute(
-        "SELECT COUNT(*) FROM novel_versions WHERE project_id=? AND is_active=1",
-        (project_id,),
+        f"SELECT COUNT(*) FROM novel_versions WHERE {where} AND is_active=1", params
     ).fetchone()[0]
     is_active = 0 if has_active else 1
     db.execute(
-        "INSERT INTO novel_versions (id,project_id,title,source_text,version_no,is_active,created_at) "
-        "VALUES (?,?,?,?,?,?,?)",
-        (vid, project_id, v.title, v.source_text, max_ver + 1, is_active, ts),
+        "INSERT INTO novel_versions (id,project_id,episode_id,title,source_text,version_no,is_active,created_at) "
+        "VALUES (?,?,?,?,?,?,?,?)",
+        (vid, project_id, v.episode_id, v.title, v.source_text, max_ver + 1, is_active, ts),
     )
-    # 同步 projects.current_novel_version_id（保持一致性）
+    # 同步当前集的 current_novel_version_id（保持一致性）
     if is_active:
         db.execute(
             "UPDATE projects SET current_novel_version_id=?, updated_at=? WHERE id=?",
             (vid, ts, project_id),
         )
+        if v.episode_id:
+            db.execute(
+                "UPDATE episodes SET current_novel_version_id=?, updated_at=? WHERE id=?",
+                (vid, ts, v.episode_id),
+            )
     db.commit()
     db.close()
     return {"success": True, "data": {"version_id": vid, "is_active": bool(is_active)}}
 
 
 @router.post("/projects/{project_id}/novel-versions/{version_id}/activate")
-def activate_novel_version(project_id: str, version_id: str):
+def activate_novel_version(project_id: str, version_id: str, episode_id: Optional[str] = None):
     db = get_db()
     ts = now()
     # 校验版本属于该项目
@@ -83,12 +93,23 @@ def activate_novel_version(project_id: str, version_id: str):
     if not row:
         db.close()
         raise HTTPException(404, "version not found in this project")
-    db.execute("UPDATE novel_versions SET is_active=0 WHERE project_id=?", (project_id,))
+    # 取消当前集（或项目）的其他 active
+    where = "project_id=?"
+    params = [project_id]
+    if episode_id:
+        where += " AND episode_id=?"
+        params.append(episode_id)
+    db.execute(f"UPDATE novel_versions SET is_active=0 WHERE {where}", params)
     db.execute("UPDATE novel_versions SET is_active=1 WHERE id=?", (version_id,))
     db.execute(
         "UPDATE projects SET current_novel_version_id=?, updated_at=? WHERE id=?",
         (version_id, ts, project_id),
     )
+    if episode_id:
+        db.execute(
+            "UPDATE episodes SET current_novel_version_id=?, updated_at=? WHERE id=?",
+            (version_id, ts, episode_id),
+        )
     db.commit()
     db.close()
     return {"success": True, "data": {"activated": True}}
