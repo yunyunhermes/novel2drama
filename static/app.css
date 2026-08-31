@@ -50,6 +50,10 @@
 .candidate.keyframe.selected{border:2px solid var(--green)}
 .candidate.keyframe small{display:block;margin:6px 0}
 
+/* 导出段顺序调整 */
+.export-order .job-row{align-items:center;gap:10px}
+.ord-no{font-weight:700;color:var(--accent);min-width:20px}
+
 /* 隐藏/空状态 */
 .hidden{display:none!important}
 .empty-state{padding:60px 20px;text-align:center;color:var(--muted);font-size:14px}

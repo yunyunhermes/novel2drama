@@ -41,7 +41,7 @@ const toast=(message,error=false)=>{const el=$('#toast');if(!el)return;el.textCo
 async function api(path,options={}){const res=await fetch(API+path,{headers:{'Content-Type':'application/json',...(options.headers||{})},...options});let body={};try{body=await res.json()}catch{}if(!res.ok||body.success===false)throw new Error(body.error?.message||`请求失败（${res.status}）`);return body.data}
 function formData(form){return Object.fromEntries(new FormData(form).entries())}
 function empty(text){return `<div class="empty">${esc(text)}</div>`}
-function status(v){return `<span class="status ${esc(v)}">${esc({draft:'草稿',queued:'排队中',running:'生成中',confirmed:'已确认',selected:'已选定',completed:'已完成',failed:'失败',keyframe_generating:'段首图生成中',h3_generating:'H3生成中',keyframe_review:'段首图待复核',keyframe_confirmed:'段首图已确认',h3_review:'H3待复核'}[v]||v||'未知')}</span>`}
+function status(v){return `<span class="status ${esc(v)}">${esc({draft:'草稿',queued:'排队中',running:'生成中',confirmed:'已确认',selected:'已选定',completed:'已完成',succeeded:'已完成',failed:'失败',keyframe_generating:'段首图生成中',h3_generating:'H3生成中',keyframe_review:'段首图待复核',keyframe_confirmed:'段首图已确认',h3_review:'H3待复核'}[v]||v||'未知')}</span>`}
 // ===== 常驻侧栏：项目名 + 当前集 + 菜单高亮 + episode_id 注入 =====
 function appendEpisodeQuery(){
   if(!currentEpisodeId) return;
@@ -243,9 +243,24 @@ async function refreshSegmentMenu(){
   await loadSegmentMenu();
 }
 
-async function loadExports(){try{const segs=await api(`/projects/${projectId}/segments${epQuery()}`);$('#confirmed-segments').innerHTML=segs.filter(s=>s.status==='confirmed').map(s=>`<div class="job-row"><span>第 ${s.sort_order} 段 · ${esc(s.summary||'')}</span><span class="badge confirmed">已确认</span></div>`).join('')||empty('暂无已确认段，请先完成 H3 复核');const rows=await api(`/projects/${projectId}/exports${epQuery()}`);$('#export-list').innerHTML=rows.length?rows.map(x=>`<div class="export-row"><div><strong>${esc(x.title)}</strong><div class="muted">${esc(x.created_at||'')} · ${x.resolution||''}</div></div><div>${status(x.status)} ${x.output_path?`<a class="btn secondary btn-sm" href="/files/${projectId}/${esc(x.output_path)}" download>下载视频</a>`:''}</div></div>`).join(''):empty('暂无导出任务')}catch(e){toast(e.message,true)}}
+let _exportOrderIds=[];
+function renderExportOrder(confirmed){
+  const el=$('#confirmed-segments'); if(!el) return;
+  if(!confirmed.length){el.innerHTML=empty('暂无已确认段，请先完成 H3 复核');_exportOrderIds=[];return}
+  _exportOrderIds=confirmed.map(s=>s.id);
+  el.innerHTML=`<div class="export-order">${confirmed.map((s,i)=>`<div class="job-row"><span class="ord-no">${i+1}</span><span style="flex:1">第 ${s.sort_order} 段 · ${esc(s.summary||'')}</span><span class="button-row"><button class="btn secondary btn-sm" data-expt-up="${i}" ${i===0?'disabled':''}>↑</button><button class="btn secondary btn-sm" data-expt-down="${i}" ${i===confirmed.length-1?'disabled':''}>↓</button></span><span class="badge confirmed">已确认</span></div>`).join('')}</div><p class="muted form-hint">可用 ↑↓ 调整拼接顺序，随后创建导出。</p>`;
+}
+async function loadExports(){
+  try{
+    const segs=await api(`/projects/${projectId}/segments${epQuery()}`);
+    const confirmed=segs.filter(s=>s.status==='confirmed');
+    renderExportOrder(confirmed);
+    const rows=await api(`/projects/${projectId}/exports${epQuery()}`);
+    $('#export-list').innerHTML=rows.length?rows.map(x=>`<div class="export-row"><div><strong>${esc(x.title)}</strong><div class="muted">${esc(x.created_at||'')} · ${x.resolution||''}</div></div><div>${status(x.status)} ${x.output_path?`<a class="btn secondary btn-sm" href="/files/${projectId}/${esc(x.output_path)}" download>下载视频</a>`:''}</div></div>`).join(''):empty('暂无导出任务');
+  }catch(e){toast(e.message,true)}
+}
 async function submit(url,body,success,refresh){try{await api(url,{method:'POST',body:JSON.stringify(body)});toast(success);if(refresh)await refresh()}catch(e){toast(e.message,true)}}
-document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects()})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,{...formData(f),episode_id:currentEpisodeId},'版本保存成功',async()=>{f.reset();await loadNovels()})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value),episode_id:currentEpisodeId},'段落创建成功',async()=>{f.reset();await refreshSegmentDetail()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets()})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value),episode_id:currentEpisodeId},'导出任务已创建',loadExports)}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',refreshSegmentDetail)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',refreshSegmentDetail)}});
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects()})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,{...formData(f),episode_id:currentEpisodeId},'版本保存成功',async()=>{f.reset();await loadNovels()})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value),episode_id:currentEpisodeId},'段落创建成功',async()=>{f.reset();await refreshSegmentDetail()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets()})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value),episode_id:currentEpisodeId,segment_ids:_exportOrderIds},'导出任务已创建',loadExports)}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',refreshSegmentDetail)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',refreshSegmentDetail)}});
 document.addEventListener('click',async e=>{
   // 段菜单点击
   const menuItem = e.target.closest('.segment-menu-item');
@@ -340,7 +355,7 @@ async function loadOverview(){
     const totalChars=active?active.text_length||0:0;
     const confirmedSegs=segments.filter(s=>s.status==='confirmed').length;
     const runningJobs=jobs.filter(j=>j.status==='running'||j.status==='queued').length;
-    const doneExports=exportsList.filter(x=>x.status==='completed').length;
+    const doneExports=exportsList.filter(x=>x.status==='completed'||x.status==='succeeded').length;
     el.innerHTML=`
       <div class="overview-card"><div class="num">${versions.length}</div><div class="lbl">原稿版本</div></div>
       <div class="overview-card"><div class="num">${totalChars}</div><div class="lbl">当前版本字数</div></div>
@@ -464,6 +479,22 @@ document.addEventListener('click',async e=>{
   if(b.dataset.action==='close-patches'){const el=$('#patch-list'); if(el)el.classList.add('hidden'); return}
   if(b.dataset.applyPatch){try{const r=await api(`/agent-patches/${b.dataset.applyPatch}/apply`,{method:'POST'});toast(`已应用 ${(r&&r.applied_segments)||0} 段`);await loadPatches();await refreshSegmentMenu()}catch(err){toast(err.message,true)}return}
   if(b.dataset.rejectPatch){try{await api(`/agent-patches/${b.dataset.rejectPatch}/reject`,{method:'POST'});toast('已拒绝该 patch');await loadPatches()}catch(err){toast(err.message,true)}return}
+});
+// ===== 导出段顺序调整 (↑↓) =====
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.exptUp===undefined && b.dataset.exptDown===undefined) return;
+  const idUp=b.dataset.exptUp, idDown=b.dataset.exptDown;
+  const i=idUp!==undefined?Number(idUp):Number(idDown);
+  const j=idUp!==undefined?i-1:i+1;
+  if(j<0||j>=_exportOrderIds.length)return;
+  [_exportOrderIds[i],_exportOrderIds[j]]=[_exportOrderIds[j],_exportOrderIds[i]];
+  try{
+    const segs=await api(`/projects/${projectId}/segments${epQuery()}`);
+    const byId={}; segs.forEach(s=>byId[s.id]=s);
+    const ordered=_exportOrderIds.map(id=>byId[id]).filter(Boolean);
+    renderExportOrder(ordered);
+  }catch(err){toast(err.message,true)}
 });
 
 // ===== 资产：直接上传本地素材 + 列表渲染 =====
