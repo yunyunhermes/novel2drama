@@ -2,6 +2,8 @@
 
 小说 → 单集 AI 漫剧工作台。把一篇小说原文经人机协同的分镜化流程，转化为一段由多个 **15 秒段**顺序拼接而成的单集 AI 漫剧（片长自制，约 2 分钟 ≈ 8 段、3 分钟 ≈ 12 段）。
 
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 - 后端：FastAPI + SQLite
 - 前端：Jinja2 模板 + 原生 JS（无前端框架）
 - 生成：ComfyUI 驱动 Z-Image / H3，GPU 单 worker 串行队列
@@ -128,4 +130,4 @@ docs/              # 需求与架构 / 开发进度 / 变更需求
 
 ## 许可
 
-尚未添加许可证（独立/私有工作台项目）。
+本项目采用 [MIT 许可证](LICENSE) 开源。Copyright (c) 2026 yunyunhermes。
