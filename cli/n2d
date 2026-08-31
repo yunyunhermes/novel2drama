@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# n2d — novel2drama 后端 CLI 入口 (自动定位脚本目录)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec python3 "$SCRIPT_DIR/n2d.py" "$@"
