@@ -439,6 +439,33 @@ document.addEventListener('click',async e=>{
 });
 if(page==='segment-review'){(async()=>{await loadSidebar();loadH3Review()})()}
 
+// ===== Agent 分镜补全 (#5): 生成分镜 + 待应用 patch 预览/应用/拒绝 =====
+async function loadPatches(){
+  const el=$('#patch-list'); if(!el) return;
+  try{
+    const rows=await api(`/projects/${projectId}/agent-patches${epQuery()}`);
+    const pending=rows.filter(p=>p.status==='pending');
+    if(!pending.length){el.innerHTML=empty('暂无待应用的分镜 patch，可先点「AI 生成分镜」触发。');return}
+    el.innerHTML=`<div class="panel-title"><h3>待应用 patch</h3><button class="btn secondary btn-sm" data-action="close-patches">收起</button></div>`+
+      pending.map(p=>{
+        let ops=[]; try{ops=(JSON.parse(p.patch_json)||{}).ops||[]}catch(e){}
+        const segOps=ops.filter(o=>o.type==='create_segment');
+        const summary=segOps.map(o=>o.data?.summary||'(无摘要)').join('；');
+        return `<div class="patch-row"><div class="card-meta"><strong>${esc(p.created_at||'')}</strong><span>${segOps.length} 个新分段</span></div>
+          <div class="muted" style="margin:6px 0">${esc(summary)}</div>
+          <div class="button-row"><button class="btn secondary btn-sm" data-apply-patch="${p.id}">应用</button><button class="btn danger btn-sm" data-reject-patch="${p.id}">拒绝</button></div></div>`;
+      }).join('');
+  }catch(e){el.innerHTML=empty(e.message)}
+}
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.action==='generate-storyboard')return submit(`/projects/${projectId}/storyboard/generate`,{episode_id:currentEpisodeId},'分镜生成任务已排队，稍后到「待应用 patch」查看',()=>{});
+  if(b.dataset.action==='show-patches'){const el=$('#patch-list'); if(!el)return; el.classList.remove('hidden'); return loadPatches()}
+  if(b.dataset.action==='close-patches'){const el=$('#patch-list'); if(el)el.classList.add('hidden'); return}
+  if(b.dataset.applyPatch){try{const r=await api(`/agent-patches/${b.dataset.applyPatch}/apply`,{method:'POST'});toast(`已应用 ${(r&&r.applied_segments)||0} 段`);await loadPatches();await refreshSegmentMenu()}catch(err){toast(err.message,true)}return}
+  if(b.dataset.rejectPatch){try{await api(`/agent-patches/${b.dataset.rejectPatch}/reject`,{method:'POST'});toast('已拒绝该 patch');await loadPatches()}catch(err){toast(err.message,true)}return}
+});
+
 // ===== 资产：直接上传本地素材 + 列表渲染 =====
 async function uploadForm(url, formData){
   const res=await fetch(API+url,{method:'POST',body:formData});
