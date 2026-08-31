@@ -160,6 +160,7 @@
   // 工具调用状态行（返回行元素，便于后续 update）
   function addTool(label,spinner=true){
     const row=document.createElement('div'); row.className='ai-tool';
+    row.dataset.label=label||'执行工具';
     row.innerHTML=`<span class="ic${spinner?' spinner':''}"></span><span class="t">${esc(label||'执行工具')}</span>`;
     msgs().appendChild(row); scrollBottom();
     return row;
