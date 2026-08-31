@@ -3,37 +3,46 @@
 {% block page %}assets{% endblock %}
 {% block content %}
 <div class="page-heading"><div><p class="eyebrow">03 / ASSETS</p><h1>资产复核</h1><p class="muted">统一角色与场景锚点，生成候选图并确认可用资产。</p></div></div>
-<section class="split-layout">
-  <div>
-    <div class="panel-title"><h2>角色与场景</h2><button class="btn secondary btn-sm" data-action="refresh-assets">刷新</button></div>
-    <div id="asset-list" class="asset-grid"><div class="loading">正在加载资产...</div></div>
-  </div>
-  <aside class="panel">
-    <div class="panel-title"><h2>新增资产</h2><span class="step">01</span></div>
-    <form data-form="create-asset">
-      <label>类型<select name="asset_type"><option value="character">角色</option><option value="scene">场景</option></select></label>
-      <label>名称<input name="name" required placeholder="例如：沈砚"></label>
-      <label>描述<textarea name="description"></textarea></label>
-      <label>外貌锚点<input name="appearance_anchor" placeholder="年龄、发型、面部特征"></label>
-      <label>服装锚点<input name="costume_anchor"></label>
-      <label>气质锚点<input name="temperament_anchor"></label>
-      <div class="form-row"><label>时间<input name="time"></label><label>天气<input name="weather"></label></div>
-      <label>光线<input name="lighting"></label>
-      <label>色彩倾向<input name="color_tendency"></label>
-      <label>负面提示<input name="negative_prompt"></label>
-      <button class="btn" type="submit">创建资产</button>
-    </form>
+<div class="panel-title"><h2>角色与场景</h2><div class="button-row"><button class="btn secondary btn-sm" data-action="open-create-asset">+ 新增资产</button><button class="btn secondary btn-sm" data-action="open-upload-asset">+ 上传素材</button><button class="btn secondary btn-sm" data-action="refresh-assets">刷新</button></div></div>
+<div id="asset-list" class="asset-grid"><div class="loading">正在加载资产...</div></div>
 
-    <div class="panel-title" style="margin-top:24px"><h2>上传本地素材</h2><span class="step">02</span></div>
-    <p class="muted form-hint">直接上传图片作为资产锚点，无需 Z-Image 抽卡。上传后自动成为资产选定图，可用「确认」入库。</p>
-    <form data-form="upload-asset" enctype="multipart/form-data">
-      <label>类型<select name="asset_type"><option value="character">角色</option><option value="scene">场景</option></select></label>
-      <label>名称<input name="name" required placeholder="例如：沈砚"></label>
-      <label>图片文件<input type="file" name="file" accept="image/*" required></label>
-      <label>描述<textarea name="description"></textarea></label>
-      <div class="form-row"><label>外貌锚点<input name="appearance_anchor"></label><label>服装锚点<input name="costume_anchor"></label></div>
-      <button class="btn" type="submit">上传素材</button>
-    </form>
-  </aside>
-</section>
+<!-- 新增资产 Modal -->
+<div class="modal-mask hidden" id="modal-create-asset">
+  <div class="modal">
+    <div class="modal-head"><h2>新增资产</h2><button class="btn secondary btn-sm" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <form data-form="create-asset">
+        <label>类型<select name="asset_type"><option value="character">角色</option><option value="scene">场景</option></select></label>
+        <label>名称<input name="name" required placeholder="例如：沈砚"></label>
+        <label>描述<textarea name="description"></textarea></label>
+        <label>外貌锚点<input name="appearance_anchor" placeholder="年龄、发型、面部特征"></label>
+        <label>服装锚点<input name="costume_anchor"></label>
+        <label>气质锚点<input name="temperament_anchor"></label>
+        <div class="form-row"><label>时间<input name="time"></label><label>天气<input name="weather"></label></div>
+        <label>光线<input name="lighting"></label>
+        <label>色彩倾向<input name="color_tendency"></label>
+        <label>负面提示<input name="negative_prompt"></label>
+        <button class="btn" type="submit">创建资产</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 上传本地素材 Modal -->
+<div class="modal-mask hidden" id="modal-upload-asset">
+  <div class="modal">
+    <div class="modal-head"><h2>上传本地素材</h2><button class="btn secondary btn-sm" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <p class="muted form-hint">直接上传图片作为资产锚点，无需 Z-Image 抽卡。上传后自动成为资产选定图，可用「确认」入库。</p>
+      <form data-form="upload-asset" enctype="multipart/form-data">
+        <label>类型<select name="asset_type"><option value="character">角色</option><option value="scene">场景</option></select></label>
+        <label>名称<input name="name" required placeholder="例如：沈砚"></label>
+        <label>图片文件<input type="file" name="file" accept="image/*" required></label>
+        <label>描述<textarea name="description"></textarea></label>
+        <div class="form-row"><label>外貌锚点<input name="appearance_anchor"></label><label>服装锚点<input name="costume_anchor"></label></div>
+        <button class="btn" type="submit">上传素材</button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

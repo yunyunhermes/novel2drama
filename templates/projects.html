@@ -2,6 +2,21 @@
 {% block title %}项目列表 - novel2drama{% endblock %}
 {% block page %}projects{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>项目管理</h1><p class="muted">从小说原稿到可导出的短剧成片，集中管理每个制作阶段。</p></div><button class="btn secondary" data-action="refresh-projects">刷新列表</button></div>
-<section class="split-layout"><div><div id="project-list" class="project-grid"><div class="loading">正在加载项目...</div></div></div><aside class="panel"><div class="panel-title"><h2>新建项目</h2><span class="step">01</span></div><form data-form="create-project"><label>项目名称<input name="name" required placeholder="例如：长安夜行"></label><label>项目描述<textarea name="description" placeholder="一句话描述故事主题与受众"></textarea></label><div class="form-row"><label>目标时长（秒）<input type="number" name="target_duration_seconds" value="180" min="1"></label><label>风格提示<input name="style_prompt" placeholder="电影感、写实"></label></div><button class="btn" type="submit">创建项目</button></form></aside></section>
+<div class="page-heading"><div><p class="eyebrow">PROJECTS</p><h1>项目管理</h1><p class="muted">从小说原稿到可导出的短剧成片，集中管理每个制作阶段。</p></div><div class="button-row"><button class="btn secondary" data-action="open-create-project">+ 新建项目</button><button class="btn secondary" data-action="refresh-projects">刷新列表</button></div></div>
+<div id="project-list" class="project-grid"><div class="loading">正在加载项目...</div></div>
+
+<!-- 新建项目 Modal -->
+<div class="modal-mask hidden" id="modal-create-project">
+  <div class="modal">
+    <div class="modal-head"><h2>新建项目</h2><button class="btn secondary btn-sm" data-close-modal>✕</button></div>
+    <div class="modal-body">
+      <form data-form="create-project">
+        <label>项目名称<input name="name" required placeholder="例如：长安夜行"></label>
+        <label>项目描述<textarea name="description" placeholder="一句话描述故事主题与受众"></textarea></label>
+        <div class="form-row"><label>目标时长（秒）<input type="number" name="target_duration_seconds" value="180" min="1"></label><label>风格提示<input name="style_prompt" placeholder="电影感、写实"></label></div>
+        <button class="btn" type="submit">创建项目</button>
+      </form>
+    </div>
+  </div>
+</div>
 {% endblock %}

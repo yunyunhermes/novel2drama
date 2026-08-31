@@ -260,7 +260,7 @@ async function loadExports(){
   }catch(e){toast(e.message,true)}
 }
 async function submit(url,body,success,refresh){try{await api(url,{method:'POST',body:JSON.stringify(body)});toast(success);if(refresh)await refresh()}catch(e){toast(e.message,true)}}
-document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects()})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,{...formData(f),episode_id:currentEpisodeId},'版本保存成功',async()=>{f.reset();await loadNovels()})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value),episode_id:currentEpisodeId},'段落创建成功',async()=>{f.reset();await refreshSegmentDetail()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets()})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value),episode_id:currentEpisodeId,segment_ids:_exportOrderIds},'导出任务已创建',loadExports)}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',refreshSegmentDetail)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',refreshSegmentDetail)}});
+document.addEventListener('submit',e=>{const f=e.target;if(f.dataset.form==='create-project'){e.preventDefault();submit('/projects', {...formData(f),target_duration_seconds:Number(f.target_duration_seconds.value||0)},'项目创建成功',async()=>{f.reset();await loadProjects();closeModal('modal-create-project')})}if(f.dataset.form==='create-novel'){e.preventDefault();submit(`/projects/${projectId}/novel-versions`,{...formData(f),episode_id:currentEpisodeId},'版本保存成功',async()=>{f.reset();await loadNovels();closeModal('modal-create-novel')})}if(f.dataset.form==='create-segment'){e.preventDefault();submit(`/projects/${projectId}/segments`,{...formData(f),sort_order:Number(f.sort_order.value),episode_id:currentEpisodeId},'段落创建成功',async()=>{f.reset();await refreshSegmentDetail()})}if(f.dataset.form==='create-asset'){e.preventDefault();submit(`/projects/${projectId}/assets`,formData(f),'资产创建成功',async()=>{f.reset();await loadAssets();closeModal('modal-create-asset')})}if(f.dataset.form==='create-export'){e.preventDefault();submit(`/projects/${projectId}/exports`,{...formData(f),fps:Number(f.fps.value),episode_id:currentEpisodeId,segment_ids:_exportOrderIds},'导出任务已创建',async()=>{await loadExports();closeModal('modal-create-export')})}if(f.dataset.editSegment){e.preventDefault();submit(`/projects/${projectId}/segments/${f.dataset.editSegment}`,formData(f),'段落已保存',refreshSegmentDetail)}if(f.dataset.addBeat){e.preventDefault();submit(`/segments/${f.dataset.addBeat}/beats`,{sort_order:1,start_ms:0,end_ms:15000},'节拍已添加',refreshSegmentDetail)}});
 document.addEventListener('click',async e=>{
   // 段菜单点击
   const menuItem = e.target.closest('.segment-menu-item');
@@ -512,7 +512,7 @@ document.addEventListener('submit',async e=>{
   e.preventDefault();
   try{
     await uploadForm(`/projects/${projectId}/assets/upload`,new FormData(f));
-    toast('素材已上传'); f.reset(); await loadAssets();
+    toast('素材已上传'); f.reset(); await loadAssets(); closeModal('modal-upload-asset');
   }catch(err){toast(err.message,true)}
 });
 async function loadAssets(){
@@ -527,6 +527,24 @@ async function loadAssets(){
       <div class="button-row">
         <button class="btn secondary btn-sm" data-generate-candidates="${a.id}">生成候选</button>
         <button class="btn secondary btn-sm" data-confirm-asset="${a.id}">${a.status==='confirmed'?'已确认':'确认'}</button>
-      </div></article>`).join(''):empty('暂无资产，用右侧表单新增或上传本地素材。');
+      </div></article>`).join(''):empty('暂无资产，点「新增资产」或「上传素材」。');
   }catch(e){el.innerHTML=empty(e.message);toast(e.message,true)}
 }
+
+// ===== 通用 Modal（新建栏浮窗化） =====
+function openModal(id){const m=document.getElementById(id);if(m){m.classList.remove('hidden');document.body.classList.add('modal-open')}}
+function closeModal(id){const m=id?document.getElementById(id):document.querySelector('.modal-mask:not(.hidden)');if(m)m.classList.add('hidden');document.body.classList.remove('modal-open')}
+document.addEventListener('click',e=>{
+  if(e.target.closest('[data-close-modal]')){closeModal();return}
+  if(e.target.classList && e.target.classList.contains('modal-mask')){closeModal();return}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button[data-action]');if(!b)return;
+  const a=b.dataset.action;
+  if(a==='open-create-project'){e.preventDefault();openModal('modal-create-project');return}
+  if(a==='open-create-novel'){e.preventDefault();openModal('modal-create-novel');return}
+  if(a==='open-create-asset'){e.preventDefault();openModal('modal-create-asset');return}
+  if(a==='open-upload-asset'){e.preventDefault();openModal('modal-upload-asset');return}
+  if(a==='open-create-export'){e.preventDefault();openModal('modal-create-export');return}
+});
