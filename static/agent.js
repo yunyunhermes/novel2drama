@@ -5,6 +5,10 @@
 (function(){
   const API='/api/v1';
   const projectId=document.body.dataset.projectId||'';
+  // 当前对话上下文（谁·哪个项目的哪个页面·当前分集），从 URL/data 读取，禁 localStorage
+  const page=document.body.dataset.page||'';
+  const episodeId=(new URLSearchParams(location.search)).get('episode_id')||'';
+  const operator=(new URLSearchParams(location.search)).get('as')||document.body.dataset.user||'工作台用户';
   const $=q=>document.querySelector(q);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -219,7 +223,7 @@
     try{
       const res=await fetch(`${API}/agent/chat`,{
         method:'POST',headers:{'Content-Type':'application/json'},signal:ctl.signal,
-        body:JSON.stringify({project_id:projectId||null,session_key:currentUiSession,text:text}),
+        body:JSON.stringify({project_id:projectId||null,session_key:currentUiSession,text:text,episode_id:episodeId,page:page,operator:operator}),
       });
       if(!res.ok||!res.body){
         let err=null; try{err=(await res.json()).error?.message}catch(_){}

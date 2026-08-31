@@ -53,6 +53,53 @@ def get_session(sid):
     return dict(r) if r else None
 
 
+def update_session_context(sid, episode_id=None, page=None, operator=None):
+    """记录该 UI 会话的当前对话上下文（用户/项目/页面/分集），多人在不同页面对话时 agent 可感知。"""
+    db = get_db()
+    ts = now()
+    db.execute(
+        "UPDATE agent_sessions SET episode_id=COALESCE(?,episode_id), page=COALESCE(?,page), "
+        "operator=COALESCE(?,operator), updated_at=? WHERE id=?",
+        (episode_id, page, operator, ts, sid),
+    )
+    db.commit()
+    db.close()
+
+
+def latest_session(project_id=None):
+    """最近活跃的 UI 会话（供 n2d where 无参兜底，单机单工作台够用）。"""
+    db = get_db()
+    if project_id:
+        r = db.execute(
+            "SELECT * FROM agent_sessions WHERE project_id=? ORDER BY updated_at DESC LIMIT 1",
+            (project_id,)).fetchone()
+    else:
+        r = db.execute("SELECT * FROM agent_sessions ORDER BY updated_at DESC LIMIT 1").fetchone()
+    db.close()
+    return dict(r) if r else None
+
+
+def get_session_context(sid):
+    """该会话的完整对话上下文：会话 + 项目名 + 最近一条用户指令。返回 None 表示会话不存在。"""
+    sess = get_session(sid)
+    if not sess:
+        return None
+    db = get_db()
+    proj = db.execute("SELECT name FROM projects WHERE id=?", (sess["project_id"],)).fetchone()
+    pname = proj["name"] if proj else None
+    um = db.execute(
+        "SELECT content_json FROM agent_messages WHERE session_id=? AND role='user' "
+        "ORDER BY created_at DESC, id DESC LIMIT 1", (sid,)).fetchone()
+    db.close()
+    last_user = None
+    if um:
+        try:
+            last_user = json.loads(um["content_json"]).get("text")
+        except Exception:
+            pass
+    return {"session": sess, "project_name": pname, "last_user_message": last_user}
+
+
 def touch_session(sid):
     db = get_db()
     db.execute("UPDATE agent_sessions SET updated_at=? WHERE id=?", (now(), sid))

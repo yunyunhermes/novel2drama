@@ -490,6 +490,32 @@ def cmd_context(args, c):
     print(f"资产: 角色 {a.get('characters')}，场景 {a.get('scenes')}")
 
 
+def cmd_where(args, c):
+    """n2d where [<session_key>] — 查看当前对话上下文（哪个用户 · 哪个项目 · 哪个页面）。"""
+    if args.session_id:
+        resp = api(c.host, c.auth, f"/api/v1/agent/sessions/{args.session_id}/context", timeout=c.timeout)
+    else:
+        resp = api(c.host, c.auth, "/api/v1/agent/sessions/latest", timeout=c.timeout)
+    data = out(resp, c.json)   # json_mode 时已打印原始 JSON
+    if data is None:
+        return
+    if c.json:
+        return
+    sess = data.get("session") or {}
+    proj = data.get("project_name")
+    print("当前对话上下文:")
+    if proj:
+        print(f"  项目: {esc(proj)}({esc(sess.get('project_id'))})")
+    if sess.get("episode_id"):
+        print(f"  当前分集: {esc(sess.get('episode_id'))}")
+    if sess.get("page"):
+        print(f"  页面: {esc(sess.get('page'))}")
+    print(f"  用户: {esc(sess.get('operator') or '工作台用户')}")
+    print(f"  会话: {esc(sess.get('id'))}")
+    if data.get("last_user_message"):
+        print(f"  最近指令: {esc(data['last_user_message'])[:120]}")
+
+
 # ---------- argparse 构建 ----------
 def build_parser():
     # 全局选项通过环境变量注入，不放在命令行, 保持简洁。这里加 --json
@@ -516,6 +542,10 @@ def build_parser():
     sp.add_argument("--episode", help="指定当前集 id")
     sp.add_argument("--page", help="当前前端页面名")
     sp.set_defaults(func=cmd_context)
+
+    sp = sub.add_parser("where", help="查看当前对话上下文(哪个用户·哪个项目·哪个页面)")
+    sp.add_argument("session_id", nargs="?", help="会话 key（默认取最近活跃会话）")
+    sp.set_defaults(func=cmd_where)
 
     sp = sub.add_parser("episodes", help="列出分集")
     sp.add_argument("project_id"); sp.set_defaults(func=cmd_list_episodes)

@@ -121,4 +121,8 @@ def migrate_agent(conn: sqlite3.Connection) -> None:
     )
     c.execute("CREATE INDEX IF NOT EXISTS idx_agent_messages_session ON agent_messages(session_id)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_agent_sessions_project ON agent_sessions(project_id)")
+    # 对话上下文感知：记录「哪个用户 · 哪个项目 · 哪个页面 · 哪个分集」与其对话
+    for col in ("episode_id", "page", "operator"):
+        if not _column_exists(c, "agent_sessions", col):
+            c.execute(f"ALTER TABLE agent_sessions ADD COLUMN {col} TEXT")
     conn.commit()
