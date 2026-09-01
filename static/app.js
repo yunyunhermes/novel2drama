@@ -266,13 +266,15 @@ document.addEventListener('click',async e=>{
   const menuItem = e.target.closest('.segment-menu-item');
   if(menuItem){selectSegment(menuItem.dataset.segmentId);return}
   // 新增段表单切换
+  // 原文参考抽屉开关（按需展开不占列宽）
+  if(e.target.dataset.action==='open-source-drawer'){const d=$('#source-ref'),m=$('#source-drawer-mask');if(d)d.classList.add('open'),d.setAttribute('aria-hidden','false');if(m)m.classList.remove('hidden');return}
+  if(e.target.dataset.action==='close-source-drawer'||e.target.id==='source-drawer-mask'){const d=$('#source-ref'),m=$('#source-drawer-mask');if(d)d.classList.remove('open'),d.setAttribute('aria-hidden','true');if(m)m.classList.add('hidden');return}
   if(e.target.dataset.action==='show-create-segment'){
     const form=$('#create-segment-form');if(form)form.classList.toggle('hidden');return
   }
   const b=e.target.closest('button');if(!b)return;try{
     // 小说编辑页新交互
     if(b.dataset.action==='toggle-source'){const v=$('#source-viewer');if(v)v.classList.toggle('collapsed');return}
-    if(b.dataset.action==='toggle-source-ref'){const v=$('#source-ref-viewer');if(v)v.classList.toggle('collapsed');return}
     if(b.dataset.action==='refresh-chapters'){if(_activeVersionId)return loadChapters(_activeVersionId);return}
     if(b.dataset.action==='parse-chapters'){
       if(!_activeVersionId){toast('请先选择版本',true);return}
