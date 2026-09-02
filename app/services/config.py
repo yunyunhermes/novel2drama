@@ -49,6 +49,8 @@ def project_subdir(project_id: str, sub: str) -> str:
 # ============ Worker 配置 ============
 WORKER_POLL_INTERVAL = int(os.getenv("WORKER_POLL_INTERVAL", "5"))  # 秒
 WORKER_MAX_RETRIES = int(os.getenv("WORKER_MAX_RETRIES", "1"))
+# 并发消费线程数 (默认=GPU卡数, 匹配双卡; 多任务并行触发 gateway, GPU 各跑一个)
+WORKER_CONCURRENCY = int(os.getenv("WORKER_CONCURRENCY", "2"))
 
 # ============ Agent 配置 ============
 AGENT_MAX_PATCH_OPS = int(os.getenv("AGENT_MAX_PATCH_OPS", "50"))

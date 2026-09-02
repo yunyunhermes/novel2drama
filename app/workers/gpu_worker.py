@@ -19,7 +19,7 @@ from app.db import get_db
 from app.services import gateway_client, storage, ffmpeg, asset_pipeline, storyboard_agent, xdit_client
 from app.services.config import (
     WORKER_POLL_INTERVAL, PROJECTS_DATA_DIR, H3_QUALITY,
-    H3_PREVIEW_SIZE, H3_HIGH_SIZE,
+    H3_PREVIEW_SIZE, H3_HIGH_SIZE, WORKER_CONCURRENCY,
 )
 
 
@@ -275,17 +275,25 @@ HANDLERS = {
 
 
 def process_one_job() -> bool:
-    """取一个 queued job 执行, 返回是否有任务被处理"""
+    """原子领取一个 queued job 执行, 返回是否有任务被处理"""
     db = get_db()
-    row = db.execute(
-        "SELECT * FROM jobs WHERE status='queued' ORDER BY priority, created_at LIMIT 1"
-    ).fetchone()
-    if not row:
+    try:
+        # 原子领取+取回: 用 RETURNING 拿到被领取的 job id/字段, 避免并发线程重复领取或取错
+        # SQLite 3.35+ 支持 RETURNING; 单条 UPDATE 原子完成"领取"与"取回"
+        row = db.execute(
+            "UPDATE jobs SET status='running', started_at=? WHERE id = "
+            "(SELECT id FROM jobs WHERE status='queued' ORDER BY priority, created_at LIMIT 1) "
+            "RETURNING *",
+            (now(),),
+        ).fetchone()
+        db.commit()
+        if not row:
+            return False
+    except Exception:
         db.close()
         return False
     job = dict(row)
     job_id = job["id"]
-    _update_job(db, job_id, "running")
     try:
         handler = HANDLERS.get(job["job_type"])
         if not handler:
@@ -300,15 +308,23 @@ def process_one_job() -> bool:
 
 
 def run_forever():
-    """主循环"""
-    print(f"[gpu_worker] started, poll interval {WORKER_POLL_INTERVAL}s")
-    while True:
-        try:
-            if not process_one_job():
+    """主循环: 并发消费 jobs 表 (WORKER_CONCURRENCY 线程), 多任务并行触发 GPU 生成"""
+    import concurrent.futures as cf
+    print(f"[gpu_worker] started, poll interval {WORKER_POLL_INTERVAL}s, concurrency {WORKER_CONCURRENCY}")
+    def _worker_loop():
+        while True:
+            try:
+                if not process_one_job():
+                    time.sleep(WORKER_POLL_INTERVAL)
+            except Exception as e:
+                print(f"[gpu_worker] loop error: {e}")
                 time.sleep(WORKER_POLL_INTERVAL)
-        except Exception as e:
-            print(f"[gpu_worker] loop error: {e}")
-            time.sleep(WORKER_POLL_INTERVAL)
+    with cf.ThreadPoolExecutor(max_workers=WORKER_CONCURRENCY) as ex:
+        for _ in range(WORKER_CONCURRENCY):
+            ex.submit(_worker_loop)
+        # 保持主线程常驻 (ThreadPoolExecutor context 管理生命周期)
+        while True:
+            time.sleep(3600)
 
 
 if __name__ == "__main__":
