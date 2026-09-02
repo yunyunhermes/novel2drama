@@ -304,7 +304,7 @@ document.addEventListener('click',async e=>{
       }catch(e){toast(e.message,true)}
       return
     }
-    if(b.dataset.action==='refresh-projects')return loadProjects();if(b.dataset.action==='refresh-detail')return loadDetail();if(b.dataset.action==='refresh-novels')return loadNovels();if(b.dataset.action==='refresh-storyboard')return refreshSegmentDetail();if(b.dataset.action==='refresh-assets')return loadAssets();if(b.dataset.action==='refresh-exports')return loadExports();if(b.dataset.activateVersion){await api(`/projects/${projectId}/novel-versions/${b.dataset.activateVersion}/activate${epQuery()}`,{method:'POST'});toast('版本已激活');return loadNovels()}if(b.dataset.deleteSegment){if(confirm('确定删除这一段吗？')){await api(`/projects/${projectId}/segments/${b.dataset.deleteSegment}`,{method:'DELETE'});toast('段落已删除');return refreshSegmentDetail()}}if(b.dataset.deleteBeat){await api(`/beats/${b.dataset.deleteBeat}`,{method:'DELETE'});toast('节拍已删除');return refreshSegmentDetail()}if(b.dataset.selectCandidate){await api(`/asset-candidates/${b.dataset.selectCandidate}/select`,{method:'POST'});toast('候选图已选定');return loadAssets()}if(b.dataset.confirmAsset){await api(`/assets/${b.dataset.confirmAsset}/confirm`,{method:'POST'});toast('资产已确认');return loadAssets()}if(b.dataset.generateCandidates){return submit(`/assets/${b.dataset.generateCandidates}/candidates/generate`,{},'候选图生成任务已排队',loadAssets)}if(b.dataset.selectKeyframe){await api(`/keyframes/${b.dataset.selectKeyframe}/select`,{method:'POST'});toast('已选定候选，点「确认」进入 H3');return refreshSegmentDetail()}if(b.dataset.confirmKeyframe){await api(`/keyframes/${b.dataset.confirmKeyframe}/confirm`,{method:'POST'});toast('段首图已确认，可进入 H3');return refreshSegmentDetail()}if(b.dataset.selectH3){await api(`/h3-generations/${b.dataset.selectH3}/select`,{method:'POST'});toast('H3视频已选定');return refreshSegmentDetail()}if(b.dataset.generateKeyframes){return submit(`/segments/${b.dataset.generateKeyframes}/keyframes/generate`,{},'段首图生成任务已排队',refreshSegmentDetail)}if(b.dataset.generateH3){return submit(`/segments/${b.dataset.generateH3}/h3-generations`,{},'H3生成任务已排队',refreshSegmentDetail)}if(b.dataset.buildPrompt){const r=await api(`/segments/${b.dataset.buildPrompt}/keyframe-prompt/build`,{method:'POST'});toast(`prompt已构建：${(r.keyframe_prompt||'').slice(0,30)}`)}}catch(err){toast(err.message,true)}});
+    if(b.dataset.action==='refresh-projects')return loadProjects();if(b.dataset.action==='refresh-detail')return loadDetail();if(b.dataset.action==='refresh-novels')return loadNovels();if(b.dataset.action==='refresh-storyboard')return refreshSegmentDetail();if(b.dataset.action==='refresh-assets')return loadAssets();if(b.dataset.action==='refresh-exports')return loadExports();if(b.dataset.activateVersion){await api(`/projects/${projectId}/novel-versions/${b.dataset.activateVersion}/activate${epQuery()}`,{method:'POST'});toast('版本已激活');return loadNovels()}if(b.dataset.deleteSegment){if(confirm('确定删除这一段吗？')){await api(`/projects/${projectId}/segments/${b.dataset.deleteSegment}`,{method:'DELETE'});toast('段落已删除');return refreshSegmentDetail()}}if(b.dataset.deleteBeat){await api(`/beats/${b.dataset.deleteBeat}`,{method:'DELETE'});toast('节拍已删除');return refreshSegmentDetail()}if(b.dataset.selectCandidate){await api(`/asset-candidates/${b.dataset.selectCandidate}/select`,{method:'POST'});toast('候选图已选定');return loadAssets()}if(b.dataset.confirmAsset){await api(`/assets/${b.dataset.confirmAsset}/confirm`,{method:'POST'});toast('资产已确认');return loadAssets()}if(b.dataset.generateCandidates){const sel=document.querySelector(`[data-aspect="${b.dataset.generateCandidates}"]`);const aspect=sel?sel.value:'4:3';return submit(`/assets/${b.dataset.generateCandidates}/candidates/generate`,{aspect},'候选图生成任务已排队',loadAssets)}if(b.dataset.generateMultiview){const sel=document.querySelector(`[data-aspect="${b.dataset.generateMultiview}"]`);const aspect=sel?sel.value:'16:9';return submit(`/assets/${b.dataset.generateMultiview}/candidates/generate`,{view_mode:'character_multi',aspect},'角色三视角候选生成任务已排队',loadAssets)}if(b.dataset.selectKeyframe){await api(`/keyframes/${b.dataset.selectKeyframe}/select`,{method:'POST'});toast('已选定候选，点「确认」进入 H3');return refreshSegmentDetail()}if(b.dataset.confirmKeyframe){await api(`/keyframes/${b.dataset.confirmKeyframe}/confirm`,{method:'POST'});toast('段首图已确认，可进入 H3');return refreshSegmentDetail()}if(b.dataset.selectH3){await api(`/h3-generations/${b.dataset.selectH3}/select`,{method:'POST'});toast('H3视频已选定');return refreshSegmentDetail()}if(b.dataset.generateKeyframes){return submit(`/segments/${b.dataset.generateKeyframes}/keyframes/generate`,{},'段首图生成任务已排队',refreshSegmentDetail)}if(b.dataset.generateH3){return submit(`/segments/${b.dataset.generateH3}/h3-generations`,{},'H3生成任务已排队',refreshSegmentDetail)}if(b.dataset.buildPrompt){const r=await api(`/segments/${b.dataset.buildPrompt}/keyframe-prompt/build`,{method:'POST'});toast(`prompt已构建：${(r.keyframe_prompt||'').slice(0,30)}`)}}catch(err){toast(err.message,true)}});
 document.addEventListener('change',e=>{const input=e.target.closest('[data-field]');if(!input)return;const row=input.closest('tr');clearTimeout(row._timer);row._timer=setTimeout(()=>{const data={};row.querySelectorAll('[data-field]').forEach(x=>data[x.dataset.field]=x.type==='number'?Number(x.value):x.value);api(`/beats/${row.dataset.beat}`,{method:'PATCH',body:JSON.stringify(data)}).then(()=>toast('节拍已保存')).catch(err=>toast(err.message,true))},350)});
 // 章节 included 切换
 document.addEventListener('change',async e=>{
@@ -521,16 +521,34 @@ async function loadAssets(){
   const el=$('#asset-list'); if(!el) return;
   try{
     const rows=await api(`/projects/${projectId}/assets`);
-    el.innerHTML=rows.length?rows.map(a=>`<article class="asset-card" data-asset-id="${a.id}">
-      <div class="asset-head"><h3>${esc(a.name)}</h3>${status(a.status)}</div>
-      <div class="asset-type">${a.asset_type==='character'?'角色':'场景'}</div>
-      ${a.selected_image?`<img src="/files/${projectId}/${esc(a.selected_image)}" alt="素材图">`:`<div class="asset-placeholder">未选定素材图</div>`}
-      <div class="card-meta"><span>${esc(a.description||'')}</span></div>
-      <div class="button-row">
-        <button class="btn secondary btn-sm" data-generate-candidates="${a.id}">生成候选</button>
-        <button class="btn secondary btn-sm" data-confirm-asset="${a.id}">${a.status==='confirmed'?'已确认':'确认'}</button>
-      </div></article>`).join(''):empty('暂无资产，点「新增资产」或「上传素材」。');
+    if(!rows.length){el.innerHTML=empty('暂无资产，点「新增资产」或「上传素材」。');return}
+    const typeLabel=ty=>ty==='character'?'角色':(ty==='scene'?'场景':(ty==='item'?'物品':ty));
+    // 按类型分组
+    const groups={'character':[],'scene':[],'item':[]};
+    rows.forEach(a=>{(groups[a.asset_type]||(groups[a.asset_type]=[])).push(a)});
+    const order=['character','scene','item'];
+    const groupTitle={'character':'角色','scene':'场景','item':'物品'};
+    el.innerHTML=order.filter(g=>groups[g].length).map(g=>`
+      <div class="asset-group"><h3 class="asset-group-title">${groupTitle[g]}</h3>
+      <div class="asset-grid-inner">${groups[g].map(a=>assetCard(a,typeLabel)).join('')}</div>
+      </div>`).join('');
   }catch(e){el.innerHTML=empty(e.message);toast(e.message,true)}
+}
+function assetCard(a,typeLabel){
+  const isChar=a.asset_type==='character';
+  return `<article class="asset-card" data-asset-id="${a.id}">
+    <div class="asset-head"><h3>${esc(a.name)}</h3>${status(a.status)}</div>
+    <div class="asset-type">${typeLabel(a.asset_type)}</div>
+    ${a.selected_image?`<img src="/files/${projectId}/${esc(a.selected_image)}" alt="素材图">`:`<div class="asset-placeholder">未选定素材图</div>`}
+    <div class="card-meta"><span>${esc(a.description||'')}</span></div>
+    <div class="button-row">
+      <select class="btn-select" data-aspect="${a.id}">
+        <option value="4:3">4:3</option><option value="1:1">1:1</option><option value="16:9">16:9</option>
+      </select>
+      <button class="btn secondary btn-sm" data-generate-candidates="${a.id}">生成候选</button>
+      ${isChar?`<button class="btn secondary btn-sm" data-generate-multiview="${a.id}">三视角</button>`:''}
+      <button class="btn secondary btn-sm" data-confirm-asset="${a.id}">${a.status==='confirmed'?'已确认':'确认'}</button>
+    </div></article>`;
 }
 
 // ===== 通用 Modal（新建栏浮窗化） =====

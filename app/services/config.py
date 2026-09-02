@@ -28,6 +28,18 @@ Z_IMAGE_MODEL = os.getenv("Z_IMAGE_MODEL", "z-image-turbo")
 H3_MODEL = os.getenv("H3_MODEL", "minimax-h3")
 QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen3.8-27b-awq")
 
+# ============ Image2 资产生成配置 (smmmc gpt-image-2) ============
+# 资产图统一走 image2 (不再用 Z-Image 出资产图); Z-Image 仅保留段首图关键帧。
+# KEY 优先取 SMMMC_API_KEY, 回退 LLM_API_KEY (GPU 侧 /etc/novel2drama.env 只有 LLM_API_KEY, 两者同值)。
+IMAGE2_BASE_URL = os.getenv("IMAGE2_BASE_URL", "https://api.smmmc.cn/v1")
+IMAGE2_API_KEY = os.getenv("SMMMC_API_KEY", os.getenv("IMAGE2_API_KEY", os.getenv("LLM_API_KEY", "")))
+IMAGE2_MODEL = os.getenv("IMAGE2_MODEL", "gpt-image-2")
+IMAGE2_QUALITY = os.getenv("IMAGE2_QUALITY", "high")
+IMAGE2_RESOLUTION = os.getenv("IMAGE2_RESOLUTION", "2K")
+IMAGE2_TIMEOUT = int(os.getenv("IMAGE2_TIMEOUT", "300"))
+# 资产生成默认画幅 (图片渠道传比例字符串; 角色多视角例外为16:9, 见 asset_pipeline)
+ASSET_DEFAULT_ASPECT = os.getenv("ASSET_DEFAULT_ASPECT", "4:3")
+
 # ============ 存储配置 ============
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "..", "data")

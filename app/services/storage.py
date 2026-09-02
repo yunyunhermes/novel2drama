@@ -11,7 +11,7 @@ from .config import project_dir, project_subdir, PROJECTS_DATA_DIR
 def ensure_project_dirs(project_id: str) -> None:
     """创建项目所有子目录"""
     for sub in ("novels", "storyboard",
-                "assets/characters", "assets/scenes",
+                "assets/characters", "assets/scenes", "assets/items",
                 "keyframes", "h3_segments", "exports", "temp"):
         project_subdir(project_id, sub)
 

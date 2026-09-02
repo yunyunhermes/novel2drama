@@ -136,9 +136,12 @@ def build_keyframe_prompt_api(segment_id: str):
     scenes = [dict(r) for r in db.execute(
         "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id WHERE r.segment_id=? AND r.asset_type='scene'",
         (segment_id,)).fetchall()]
+    items = [dict(r) for r in db.execute(
+        "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id WHERE r.segment_id=? AND r.asset_type='item'",
+        (segment_id,)).fetchall()]
     first_beat = db.execute("SELECT * FROM shot_beats WHERE segment_id=? ORDER BY start_ms LIMIT 1", (segment_id,)).fetchone()
     first_beat = dict(first_beat) if first_beat else None
-    prompt = build_keyframe_prompt(seg, chars, scenes, style_prompt, first_beat)
+    prompt = build_keyframe_prompt(seg, chars, scenes, style_prompt, first_beat, items)
     negative = build_negative_prompt(seg, chars, scenes)
     ts = _now()
     db.execute("UPDATE segments SET keyframe_prompt=?, negative_prompt=?, updated_at=? WHERE id=?",
@@ -167,8 +170,11 @@ def build_h3_prompt_api(segment_id: str):
     scenes = [dict(r) for r in db.execute(
         "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id WHERE r.segment_id=? AND r.asset_type='scene'",
         (segment_id,)).fetchall()]
+    items = [dict(r) for r in db.execute(
+        "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id WHERE r.segment_id=? AND r.asset_type='item'",
+        (segment_id,)).fetchall()]
     beats = [dict(r) for r in db.execute("SELECT * FROM shot_beats WHERE segment_id=? ORDER BY start_ms", (segment_id,)).fetchall()]
-    prompt = build_h3_prompt(seg, beats, chars, scenes, style_prompt)
+    prompt = build_h3_prompt(seg, beats, chars, scenes, style_prompt, items)
     negative = build_negative_prompt(seg, chars, scenes)
     ts = _now()
     db.execute("UPDATE segments SET h3_prompt=?, negative_prompt=?, updated_at=? WHERE id=?",
@@ -224,7 +230,7 @@ def apply_agent_patch(patch_id: str):
             asset_map[(asset_type, data.get("name", ""))] = aid
             assets_created += 1
 
-    # 第二遍: 创建分段并绑定角色/场景
+    # 第二遍: 创建分段并绑定角色/场景/物品
     def _bind_segment_assets(segment_id, segment_data):
         for cname in segment_data.get("characters", []) or []:
             aid = asset_map.get(("character", cname))
@@ -238,6 +244,12 @@ def apply_agent_patch(patch_id: str):
                 db.execute(
                     "INSERT INTO segment_asset_refs (id,segment_id,asset_type,asset_id,created_at) VALUES (?,?,?,?,?)",
                     (str(_uuid.uuid4()), segment_id, "scene", aid, ts))
+        for iname in segment_data.get("items", []) or []:
+            aid = asset_map.get(("item", iname))
+            if aid:
+                db.execute(
+                    "INSERT INTO segment_asset_refs (id,segment_id,asset_type,asset_id,created_at) VALUES (?,?,?,?,?)",
+                    (str(_uuid.uuid4()), segment_id, "item", aid, ts))
 
     for op in ops:
         if op.get("type") != "create_segment":

@@ -21,8 +21,15 @@ def list_assets(project_id: str):
     db.close()
     return {"success": True, "data": [dict(r) for r in rows]}
 
+# 资产类型 -> 上传/存储子目录
+ASSET_SUBDIR_MAP = {"character": "assets/characters", "scene": "assets/scenes", "item": "assets/items"}
+
+
 @router.post("/projects/{project_id}/assets")
 def create_asset(project_id: str, a: AssetCreate):
+    if a.asset_type not in ("character", "scene", "item"):
+        return {"success": False, "error": {"code": "INVALID_ASSET_TYPE",
+                                            "message": "asset_type must be character/scene/item"}}
     db = get_db()
     aid = str(uuid.uuid4())
     ts = now()
@@ -48,17 +55,23 @@ import json as _json
 
 @router.post("/assets/{asset_id}/candidates/generate")
 def gen_asset_candidates(asset_id: str, payload: dict = Body(default={})):
-    """触发 Z-Image 资产候选图生成, 返回 job_id"""
+    """触发资产候选图生成 (image2 渠道), 返回 job_id。
+    payload 支持: count/size/aspect/view_mode/use_ref/quality/resolution/prompt_override。"""
     db = get_db()
     a = db.execute("SELECT * FROM assets WHERE id=?", (asset_id,)).fetchone()
     if not a:
         db.close()
         return {"success": False, "error": {"code": "NOT_FOUND", "message": "asset not found"}}
     a = dict(a)
+    # asset_type 白名单 (防御非法类型)
+    if a["asset_type"] not in ("character", "scene", "item"):
+        db.close()
+        return {"success": False, "error": {"code": "INVALID_ASSET_TYPE",
+                                            "message": f"unsupported asset_type: {a['asset_type']}"}}
     jid = str(uuid.uuid4())
     ts = now()
     db.execute("INSERT INTO jobs (id,project_id,job_type,target_type,target_id,payload_json,status,created_at) VALUES (?,?,?,?,?,?,?,?)",
-               (jid, a["project_id"], "z_image_asset", "asset", asset_id, _json.dumps(payload), 'queued', ts))
+               (jid, a["project_id"], "image2_asset", "asset", asset_id, _json.dumps(payload), 'queued', ts))
     db.commit()
     db.close()
     return {"success": True, "data": {"job_id": jid, "status": "queued"}}
@@ -106,7 +119,9 @@ async def upload_asset(project_id: str,
     try:
         if not db.execute("SELECT id FROM projects WHERE id=? AND deleted_at IS NULL", (project_id,)).fetchone():
             raise HTTPException(404, "project not found")
-        sub = "assets/characters" if asset_type == "character" else "assets/scenes"
+        if asset_type not in ASSET_SUBDIR_MAP:
+            raise HTTPException(400, "asset_type must be character/scene/item")
+        sub = ASSET_SUBDIR_MAP[asset_type]
         storage.ensure_project_dirs(project_id)
         ext = _os.path.splitext(file.filename or "")[1] or ".jpg"
         if ext.lower() not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):

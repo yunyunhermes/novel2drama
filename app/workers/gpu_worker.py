@@ -73,6 +73,9 @@ def handle_z_image_keyframe(db, job: Dict[str, Any]) -> None:
     scenes = [dict(r) for r in db.execute(
         "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id "
         "WHERE r.segment_id=? AND r.asset_type='scene'", (segment_id,)).fetchall()]
+    items = [dict(r) for r in db.execute(
+        "SELECT a.* FROM assets a JOIN segment_asset_refs r ON a.id=r.asset_id "
+        "WHERE r.segment_id=? AND r.asset_type='item'", (segment_id,)).fetchall()]
 
     # 项目风格
     proj = db.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
@@ -80,7 +83,7 @@ def handle_z_image_keyframe(db, job: Dict[str, Any]) -> None:
 
     from app.services.prompt_builder import build_keyframe_prompt, build_negative_prompt
     prompt = p.get("prompt_override") or seg.get("keyframe_prompt") or build_keyframe_prompt(
-        seg, chars, scenes, style_prompt, first_beat)
+        seg, chars, scenes, style_prompt, first_beat, items)
     negative = build_negative_prompt(seg, chars, scenes)
 
     for i in range(count):
@@ -99,13 +102,22 @@ def handle_z_image_keyframe(db, job: Dict[str, Any]) -> None:
     db.commit()
 
 
-def handle_z_image_asset(db, job: Dict[str, Any]) -> None:
-    """Z-Image 资产候选图"""
+def handle_image2_asset(db, job: Dict[str, Any]) -> None:
+    """资产生成 (image2 渠道): 支持画幅/视角/参考图衍生等参数透传"""
     p = _get_payload(job)
     asset_id = job["target_id"]
-    count = p.get("count", 4)
+    count = int(p.get("count", 4))
     prompt_override = p.get("prompt_override")
-    asset_pipeline.generate_candidates(db, asset_id, count=count, prompt_override=prompt_override)
+    size = p.get("size") or None  # 像素字符串; None → 按 aspect
+    aspect = p.get("aspect") or None  # 比例 (4:3/16:9/1:1)
+    view_mode = p.get("view_mode") or "single"  # single / character_multi
+    use_ref = bool(p.get("use_ref", False))
+    quality = p.get("quality") or None
+    resolution = p.get("resolution") or None
+    asset_pipeline.generate_candidates(
+        db, asset_id, count=count, prompt_override=prompt_override,
+        size=size, aspect=aspect, view_mode=view_mode,
+        quality=quality, resolution=resolution, use_ref=use_ref)
 
 
 def handle_h3_segment(db, job: Dict[str, Any]) -> None:
@@ -254,6 +266,8 @@ def handle_llm_storyboard(db, job: Dict[str, Any]) -> None:
         ops.append({"type": "create_asset", "data": dict(ch, asset_type="character")})
     for sc in result.get("scenes", []):
         ops.append({"type": "create_asset", "data": dict(sc, asset_type="scene")})
+    for it in result.get("items", []) or []:
+        ops.append({"type": "create_asset", "data": dict(it, asset_type="item")})
     for seg in result.get("segments", []):
         ops.append({"type": "create_segment", "data": seg})
     patch_id = str(uuid.uuid4())
@@ -267,7 +281,8 @@ def handle_llm_storyboard(db, job: Dict[str, Any]) -> None:
 # ============ 任务分发 ============
 HANDLERS = {
     "z_image_keyframe": handle_z_image_keyframe,
-    "z_image_asset": handle_z_image_asset,
+    "z_image_asset": handle_image2_asset,  # 兼容旧 job_type; 资产仍走 image2
+    "image2_asset": handle_image2_asset,
     "h3_segment": handle_h3_segment,
     "ffmpeg_export": handle_ffmpeg_export,
     "llm_storyboard": handle_llm_storyboard,
