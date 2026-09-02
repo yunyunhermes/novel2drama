@@ -224,6 +224,7 @@ def handle_llm_storyboard(db, job: Dict[str, Any]) -> None:
     project_id = job["project_id"]
     novel_version_id = p.get("novel_version_id")
     target_duration = p.get("target_duration_seconds", 180)
+    episode_id = p.get("episode_id") or job.get("episode_id")
 
     nv = db.execute("SELECT * FROM novel_versions WHERE id=?", (novel_version_id,)).fetchone()
     if not nv:
@@ -239,22 +240,27 @@ def handle_llm_storyboard(db, job: Dict[str, Any]) -> None:
     # 保存为 agent_task + patch
     task_id = str(uuid.uuid4())
     db.execute(
-        "INSERT INTO agent_tasks (id, project_id, task_type, target_json, instruction, status, result_json, created_at, updated_at) "
-        "VALUES (?,?,?,?,?,?,?,?,?)",
-        (task_id, project_id, "generate_storyboard",
+        "INSERT INTO agent_tasks (id, project_id, episode_id, task_type, target_json, instruction, status, result_json, created_at, updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)",
+        (task_id, project_id, episode_id, "generate_storyboard",
          json.dumps({"novel_version_id": novel_version_id}),
          f"生成 {target_duration}s 分镜", "succeeded",
          json.dumps(result), now(), now()))
 
     # 构造 patch (不直接应用, 等用户确认)
+    # 先落资产 (create_asset), 再落分段 (create_segment)
     ops = []
+    for ch in result.get("characters", []):
+        ops.append({"type": "create_asset", "data": dict(ch, asset_type="character")})
+    for sc in result.get("scenes", []):
+        ops.append({"type": "create_asset", "data": dict(sc, asset_type="scene")})
     for seg in result.get("segments", []):
         ops.append({"type": "create_segment", "data": seg})
     patch_id = str(uuid.uuid4())
     db.execute(
-        "INSERT INTO agent_patches (id, agent_task_id, project_id, patch_json, status, created_at) "
-        "VALUES (?,?,?,?,?,?)",
-        (patch_id, task_id, project_id, json.dumps({"ops": ops}), "pending", now()))
+        "INSERT INTO agent_patches (id, agent_task_id, project_id, episode_id, patch_json, status, created_at) "
+        "VALUES (?,?,?,?,?,?,?)",
+        (patch_id, task_id, project_id, episode_id, json.dumps({"ops": ops}), "pending", now()))
     db.commit()
 
 

@@ -78,3 +78,31 @@ def confirm_asset(db, asset_id: str) -> None:
     """确认资产入库"""
     db.execute("UPDATE assets SET status='confirmed', updated_at=? WHERE id=?", (now(), asset_id))
     db.commit()
+
+
+def ensure_asset_from_storyboard(db, project_id: str, asset_type: str, data: Dict[str, Any]) -> Optional[str]:
+    """
+    根据 LLM 分镜返回的 character/scene dict 创建资产（幂等：同名同类型已存在则复用）。
+    返回 asset_id；name 为空/未提供时返回 None。
+    """
+    name = (data.get("name") or "").strip()
+    if not name:
+        return None
+    existing = db.execute(
+        "SELECT id FROM assets WHERE project_id=? AND asset_type=? AND name=?",
+        (project_id, asset_type, name)).fetchone()
+    if existing:
+        return existing["id"]
+    aid = str(uuid.uuid4())
+    ts = now()
+    db.execute(
+        "INSERT INTO assets (id,project_id,asset_type,name,description,appearance_anchor,costume_anchor,"
+        "temperament_anchor,time,weather,lighting,color_tendency,negative_prompt,status,created_at,updated_at) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (aid, project_id, asset_type, name,
+         data.get("description", ""), data.get("appearance_anchor", ""),
+         data.get("costume_anchor", ""), data.get("temperament_anchor", ""),
+         data.get("time", ""), data.get("weather", ""), data.get("lighting", ""),
+         data.get("color_tendency", ""), data.get("negative_prompt", ""),
+         "draft", ts, ts))
+    return aid

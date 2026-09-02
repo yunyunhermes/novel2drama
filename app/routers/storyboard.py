@@ -192,7 +192,8 @@ def list_agent_patches(project_id: str, episode_id: Optional[str] = None):
 
 @router.post("/agent-patches/{patch_id}/apply")
 def apply_agent_patch(patch_id: str):
-    """应用 Agent patch (第一版: 只支持 create_segment)"""
+    """应用 Agent patch (支持 create_asset / create_segment)"""
+    from app.services import asset_pipeline
     db = get_db()
     p = db.execute("SELECT * FROM agent_patches WHERE id=?", (patch_id,)).fetchone()
     if not p:
@@ -204,16 +205,46 @@ def apply_agent_patch(patch_id: str):
         return {"success": False, "error": {"code": "ALREADY_PROCESSED", "message": f"patch status: {p['status']}"}}
     patch = _json.loads(p["patch_json"])
     ops = patch.get("ops", [])
+    # 项目级 episode_id: 优先 patch 记录, 其次 op 的 data
+    patch_episode_id = p.get("episode_id")
+    assets_created = 0
     applied = 0
     errors = []
+    ts = _now()
+
+    # 第一遍: 先创建资产, 建立 (asset_type, name) -> asset_id 映射
+    asset_map = {}
+    for op in ops:
+        if op.get("type") != "create_asset":
+            continue
+        data = op.get("data", {})
+        asset_type = data.get("asset_type", "character")
+        aid = asset_pipeline.ensure_asset_from_storyboard(db, p["project_id"], asset_type, data)
+        if aid:
+            asset_map[(asset_type, data.get("name", ""))] = aid
+            assets_created += 1
+
+    # 第二遍: 创建分段并绑定角色/场景
+    def _bind_segment_assets(segment_id, segment_data):
+        for cname in segment_data.get("characters", []) or []:
+            aid = asset_map.get(("character", cname))
+            if aid:
+                db.execute(
+                    "INSERT INTO segment_asset_refs (id,segment_id,asset_type,asset_id,created_at) VALUES (?,?,?,?,?)",
+                    (str(_uuid.uuid4()), segment_id, "character", aid, ts))
+        for sname in segment_data.get("scenes", []) or []:
+            aid = asset_map.get(("scene", sname))
+            if aid:
+                db.execute(
+                    "INSERT INTO segment_asset_refs (id,segment_id,asset_type,asset_id,created_at) VALUES (?,?,?,?,?)",
+                    (str(_uuid.uuid4()), segment_id, "scene", aid, ts))
+
     for op in ops:
         if op.get("type") != "create_segment":
-            errors.append(f"unsupported op type: {op.get('type')}")
             continue
         data = op.get("data", {})
         sid = str(_uuid.uuid4())
-        ts = _now()
-        episode_id = p.get("episode_id") or data.get("episode_id")
+        episode_id = patch_episode_id or data.get("episode_id")
         # 获取当前集最大 sort_order
         max_so = db.execute(
             "SELECT MAX(sort_order) FROM segments WHERE project_id=? AND (? IS NULL OR episode_id=?)",
@@ -237,12 +268,13 @@ def apply_agent_patch(patch_id: str):
                  beat.get("lighting",""), beat.get("composition",""),
                  beat.get("style",""), beat.get("emotion",""), beat.get("transition",""),
                  ts, ts))
+        _bind_segment_assets(sid, data)
         applied += 1
     ts = _now()
     db.execute("UPDATE agent_patches SET status='applied', applied_at=? WHERE id=?", (ts, patch_id))
     db.commit()
     db.close()
-    return {"success": True, "data": {"applied_segments": applied, "errors": errors}}
+    return {"success": True, "data": {"applied_segments": applied, "assets_created": assets_created, "errors": errors}}
 
 
 @router.post("/agent-patches/{patch_id}/reject")
