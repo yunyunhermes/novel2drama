@@ -190,6 +190,7 @@ def image2_generate(prompt: str, size: Optional[str] = None,
     - refs 为空 → 文生图 /images/generations
     - refs 非空 → /images/edits multipart (image[] 重复字段)
     - size: 像素字符串 (如 1536x864) 或 "auto"; 为空时按 aspect (默认 ASSET_DEFAULT_ASPECT)。
+    - 若上游返回 JPEG 字节 (CDN URL), 会用 PIL 转成真 PNG (PNG 名 + PNG 内容), 保证落盘格式一致。
     """
     size_str = _normalize_size(size or "", aspect, view_mode)
     model = model or IMAGE2_MODEL
@@ -210,4 +211,24 @@ def image2_generate(prompt: str, size: Optional[str] = None,
             "reasoning_effort": reasoning_effort,
         }
         data = _post_json("/images/generations", payload)
-    return extract_images(data)
+    images = extract_images(data)
+    # 落盘前统一转真 PNG: URL 下载的常是 JPEG 字节, 用 PNG 名保存需真 PNG 内容
+    return [_to_png(b) for b in images]
+
+
+def _to_png(data: bytes) -> bytes:
+    """若字节是 JPEG (非 PNG) 且有 PIL, 转成真 PNG; 否则原样返回。"""
+    try:
+        from PIL import Image
+    except ImportError:
+        return data
+    try:
+        marker = data[:4]
+        if marker == b"\x89PNG":
+            return data  # 已是 PNG
+        img = Image.open(io.BytesIO(data))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "PNG")
+        return buf.getvalue()
+    except Exception:
+        return data
