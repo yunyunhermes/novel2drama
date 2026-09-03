@@ -536,11 +536,13 @@ async function loadAssets(){
 }
 function assetCard(a,typeLabel){
   const isChar=a.asset_type==='character';
+  const cands=(a.candidates||[]).map(c=>`<div class="candidate ${c.id===a.selected_candidate_id?'selected':''}"><img src="/files/${projectId}/${esc(c.image_path)}" alt="候选图"><small>${status(c.status)}</small>${c.id===a.selected_candidate_id?'':`<button class="btn secondary btn-sm" data-select-candidate="${c.id}">选定</button>`}</div>`).join('');
   return `<article class="asset-card" data-asset-id="${a.id}">
     <div class="asset-head"><h3>${esc(a.name)}</h3>${status(a.status)}</div>
     <div class="asset-type">${typeLabel(a.asset_type)}</div>
     ${a.selected_image?`<img src="/files/${projectId}/${esc(a.selected_image)}" alt="素材图">`:`<div class="asset-placeholder">未选定素材图</div>`}
     <div class="card-meta"><span>${esc(a.description||'')}</span></div>
+    ${cands?`<div class="candidate-grid">${cands}</div>`:`<div class="muted asset-empty" style="padding:8px 0">暂无候选图，点「生成候选」生成</div>`}
     <div class="button-row">
       <select class="btn-select" data-aspect="${a.id}">
         <option value="4:3">4:3</option><option value="1:1">1:1</option><option value="16:9">16:9</option>

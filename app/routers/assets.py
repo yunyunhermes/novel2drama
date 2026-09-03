@@ -18,8 +18,18 @@ def list_assets(project_id: str):
         "WHERE a.project_id=? ORDER BY a.created_at DESC",
         (project_id,),
     ).fetchall()
+    data = []
+    for r in rows:
+        d = dict(r)
+        cands = db.execute(
+            "SELECT id, image_path, status, generator FROM asset_candidates "
+            "WHERE asset_id=? ORDER BY created_at DESC",
+            (d["id"],),
+        ).fetchall()
+        d["candidates"] = [dict(c) for c in cands]
+        data.append(d)
     db.close()
-    return {"success": True, "data": [dict(r) for r in rows]}
+    return {"success": True, "data": data}
 
 # 资产类型 -> 上传/存储子目录
 ASSET_SUBDIR_MAP = {"character": "assets/characters", "scene": "assets/scenes", "item": "assets/items"}
